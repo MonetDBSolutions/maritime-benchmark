@@ -28,10 +28,8 @@ FROM '/path/to/data/[P1] AIS Data/nari_dynamic_sar.csv' (mmsi,altitude,speed,cou
 DELIMITERS ',';
 
 #GEOM COLUMN
-ALTER TABLE ais_data.dynamic_sar ADD COLUMN geom Point;
-ALTER TABLE ais_data.dynamic_sar ADD COLUMN geom_4326 Point;
-UPDATE ais_data.dynamic_sar SET geom = st_point(lon,lat);
-#UPDATE ais_data.dynamic_sar SET geom_4326 = st_PointFromText(st_AsText(geom),4326);
+ALTER TABLE ais_data.dynamic_sar ADD COLUMN geom Geometry;
+UPDATE ais_data.dynamic_sar SET geom = st_setsrid(st_point(lon,lat),4326);
 
 #Timestamp Column
 ALTER TABLE ais_data.dynamic_sar ADD COLUMN t Timestamp;
@@ -55,8 +53,8 @@ FROM '/path/to/data/[P1] AIS Data/nari_dynamic_aton.csv' (mmsi,typeofaid,aidsnam
 DELIMITERS ',';
 
 #GEOM COLUMN
-ALTER TABLE ais_data.dynamic_aton ADD COLUMN geom Point;
-UPDATE ais_data.dynamic_aton SET geom = st_point(lon,lat);
+ALTER TABLE ais_data.dynamic_aton ADD COLUMN geom Geometry;
+UPDATE ais_data.dynamic_aton SET geom = st_setsrid(st_point(lon,lat),4326);
 
 #Timestamp Column
 ALTER TABLE ais_data.dynamic_aton ADD COLUMN t Timestamp;
@@ -86,8 +84,6 @@ COPY OFFSET 2 INTO ais_data.static_ships(sourcemmsi,imo,callsign,shipname,shipty
 FROM '/path/to/data/[P1] AIS Data/nari_static.csv' (sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts) 
 DELIMITERS ',','\n','"' NULL AS '';
 
-#GEOM COLUMN
-
 #Timestamp Column
 ALTER TABLE ais_data.static_ships ADD COLUMN t Timestamp;
 UPDATE ais_data.static_ships SET t = epoch(cast(ts as int));
@@ -112,10 +108,8 @@ FROM '/path/to/data/[P1] AIS Data/nari_dynamic.csv' (mmsi,status,turn,speed,cour
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-ALTER TABLE ais_data.dynamic_ships ADD COLUMN geom Point;
-UPDATE ais_data.dynamic_ships SET geom = st_point(lon,lat);
-#ALTER TABLE ais_data.dynamic_ships ADD COLUMN geom_4326 Point;
-#UPDATE ais_data.dynamic_ships SET geom_4326 = st_PointFromText(st_AsText(geom),4326);
+ALTER TABLE ais_data.dynamic_ships ADD COLUMN geom Geometry;
+UPDATE ais_data.dynamic_ships SET geom = st_setsrid(st_point(lon,lat),4326);
 
 #Timestamp Column
 ALTER TABLE ais_data.dynamic_ships ADD COLUMN t Timestamp;

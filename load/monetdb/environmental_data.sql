@@ -37,6 +37,7 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_october.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
+#TODO
 
 ---------------- NOVEMBER --------------------
 CREATE TABLE environment_data.oc_november
@@ -56,6 +57,7 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_november.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
+#TODO
 
 ---------------- DECEMBER --------------------
 CREATE TABLE environment_data.oc_december
@@ -75,6 +77,7 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_december.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
+#TODO
 
 ---------------- JANUARY --------------------
 
@@ -95,6 +98,7 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_january.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
+#TODO
 
 ---------------- FEBRUARY --------------------
 
@@ -115,6 +119,7 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_february.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
+#TODO
 
 ---------------- MARCH --------------------
 
@@ -135,6 +140,7 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_march.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
+#TODO
 
 #
 # === Weather data ===
@@ -167,6 +173,7 @@ FROM '/path/to/data/[E2] Weather Conditions/table_weatherStation.csv'
 DELIMITERS ',';
 
 #GEOM COLUMN
+#TODO
 
 CREATE TABLE environment_data.observations
 (
