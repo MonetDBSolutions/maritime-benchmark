@@ -5,6 +5,7 @@ import time
 import urllib
 import zipfile
 import requests
+import fileinput
 
 def main():
     pwd = os.getcwd()
@@ -19,9 +20,29 @@ def main():
     os.mkdir(dir)
     builtin_dir = os.path.join(pwd, '<built-in function dir>')
 
-    rename_files(builtin_dir, dir)
+    rename_downloaded_files(builtin_dir, dir)
 
-def rename_files(src, dest):
+    print(f"replacing /path/to/data with actual pwd: {pwd}/data/")
+    change_pwd_in_files(f"{pwd}/load/monetdb", pwd)
+    change_pwd_in_files(f"{pwd}/load/postgres", pwd)
+
+
+# Change all instances of /path/to/data
+# with the relevant path.
+def change_pwd_in_files(path, pwd):
+    files = os.listdir(path)
+    TARGET = '/path/to/data/'
+
+    for name in files:
+        with fileinput.input(f"{path}/{name}", inplace=True) as f:
+            for line in f:
+                if TARGET in line:
+                    line = line.replace(TARGET, f"{pwd}/data/")
+
+                print(line, end='')
+
+
+def rename_downloaded_files(src, dest):
     for dir in os.listdir(src):
         for file in os.listdir(f"{src}/{dir}"):
             f = file.replace(' ', '_').lower()
