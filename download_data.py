@@ -5,6 +5,7 @@ import time
 import urllib
 import zipfile
 import requests
+import fileinput
 
 def main():
     pwd = os.getcwd()
@@ -19,9 +20,35 @@ def main():
     os.mkdir(dir)
     builtin_dir = os.path.join(pwd, '<built-in function dir>')
 
-    rename_files(builtin_dir, dir)
+    rename_downloaded_files(builtin_dir, dir)
 
-def rename_files(src, dest):
+    print(f"replacing /path/to/data with actual pwd: {pwd}/data/")
+    change_pwd_in_files(f"{pwd}/load/monetdb", pwd)
+    change_pwd_in_files(f"{pwd}/load/postgres", pwd)
+    change_pwd_in_file(f"{pwd}/load_psql.sh")
+
+
+# Change all instances of /path/to/data
+# with the relevant path.
+def change_pwd_in_files(path, pwd):
+    files = os.listdir(path)
+    
+    for name in files:
+        change_pwd_in_file(f"{path}/{name}")
+
+def change_pwd_in_file(filename):
+    TARGET = '/path/to/data/'
+
+    with fileinput.input(filename, inplace=True) as f:
+            for line in f:
+                if TARGET in line:
+                    line = line.replace(TARGET, filename)
+
+                print(line, end='')
+
+
+
+def rename_downloaded_files(src, dest):
     for dir in os.listdir(src):
         for file in os.listdir(f"{src}/{dir}"):
             f = file.replace(' ', '_').lower()
@@ -59,6 +86,7 @@ def download_data(dir):
 
         filename = urllib.parse.unquote(link)
         _zipLoc = f"{dir}/{filename}"
+        print(f"writing to {_zipLoc}")
         _zip = open(_zipLoc, 'wb')
         _zip.write(r.content)
         unzip_and_rename(_zipLoc, dir, filename)
@@ -68,6 +96,7 @@ def download_data(dir):
 def unzip_and_rename(z, d, f):
     f = f.split('.')[0].strip()
     with zipfile.ZipFile(z, 'r') as zip_ref:
+        print(f"creating and extracting to: {d}/{f}")
         os.mkdir(f"{d}/{f}")
         zip_ref.extractall(f"{dir}/{f}")
 
