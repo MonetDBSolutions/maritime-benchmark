@@ -12,7 +12,7 @@ ORDER BY mmsi, libelle_po, ts;
 
 COPY SELECT * FROM comparison.distance_sar_brittany INTO '/Users/bernardo/Monet/VesselAI/Prototype/Comparisons/Distance/distance_sar_brittany_monet.csv' USING DELIMITERS ',' , '\n' , '"';
 
--- Distance between dynamic_sar point and fishing_areas polygons
+-- Distance between dynamic_sar point and fishing_areas polygons -> Taking too long!
 DROP TABLE IF EXISTS comparison.distance_sar_fishing;
 
 CREATE TABLE comparison.distance_sar_fishing AS
@@ -28,13 +28,21 @@ COPY SELECT * FROM comparison.distance_sar_fishing INTO '/Users/bernardo/Monet/V
 DROP TABLE IF EXISTS comparison.distance_brittany_fishing;
 
 CREATE TABLE comparison.distance_brittany_fishing AS
-SELECT libelle_po, name, q2.gid, st_distancegeographic(q1.geom,q2.geom) as distance
+SELECT libelle_po, q2.gid, st_distancegeographic(q1.geom,q2.geom) as distance
 FROM sys.fishing_areas as q1
 INNER JOIN sys.brittany_ports as q2
 ON TRUE
-ORDER BY q2.gid, name;
+ORDER BY q1.gid, q2.gid;
 
 COPY SELECT * FROM comparison.distance_brittany_fishing INTO '/Users/bernardo/Monet/VesselAI/Prototype/Comparisons/Distance/distance_brittany_fishing_monet.csv' USING DELIMITERS ',' , '\n' , '"';
+
+
+-- Wrong point in polygon
+SELECT st_distancegeographic(ST_LineFromText('LINESTRING(-4.551000 48.193000,-4.957956 48.397021)'), ST_LineFromText('LINESTRING(-1.760445 49.007141,-1.760945 49.006641)'));
+SELECT st_distance(ST_LineFromText('LINESTRING(-4.551000 48.193000,-4.957956 48.397021)')::Geography, ST_LineFromText('LINESTRING(-1.760445 49.007141,-1.760945 49.006641)')::Geography);
+-- Correct point in polygon
+SELECT st_distancegeographic(ST_LineFromText('LINESTRING(-4.551000 48.193000,-3.967134 48.721251)'), ST_LineFromText('LINESTRING(-3.936462 48.720139,-3.936962 48.719639)'));
+SELECT st_distance(ST_LineFromText('LINESTRING(-4.551000 48.193000,-3.967134 48.721251)')::Geography, ST_LineFromText('LINESTRING(-3.936462 48.720139,-3.936962 48.719639)')::Geography);
 
 -- Distance between fao_areas polygons and fishing_areas polygons
 DROP TABLE IF EXISTS comparison.distance_fao_fishing;
@@ -48,7 +56,7 @@ ORDER BY q2.gid, q1.gid;
 
 COPY SELECT * FROM comparison.distance_fao_fishing INTO '/Users/bernardo/Monet/VesselAI/Prototype/Comparisons/Distance/distance_fao_fishing_monet.csv' USING DELIMITERS ',' , '\n' , '"';
 
--- Stopped ships within 500m of a port of brittany during Jan 1,2016 
+-- Stopped ships within 500m of a port of brittany during Jan 1,2016 -> TODO Need to analyse these!
 CREATE TABLE comparison.anchored_ships_brittany AS
 SELECT DISTINCT port_name, mmsi, shipname, min_t, max_t, max_t - min_t as dur
 FROM (

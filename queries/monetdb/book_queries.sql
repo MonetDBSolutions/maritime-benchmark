@@ -87,7 +87,7 @@ SELECT mmsi, t1, t2, speed1, speed2, p1, p2,
 	st_makeline(p1,p2) as segment, 
 	st_distance(p1,p2) as distance,
 	(t2-t1) as duration_s,
-	(st_distance(p1,p2) / (extract(epoch from (t2-t1)/1000))) as speed_m_s
+	(st_distancegeographic(p1,p2) / (extract(epoch from (t2-t1)/1000))) as speed_m_s
 FROM (
 	SELECT mmsi, LEAD(mmsi) OVER (ORDER BY mmsi, t) as mmsi2,
 		t AS t1, LEAD(t) OVER (ORDER BY mmsi, t) as t2,

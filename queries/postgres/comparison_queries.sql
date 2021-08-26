@@ -26,7 +26,7 @@ COPY comparison.distance_sar_brittany_ellipsis TO '/Users/bernardo/Monet/VesselA
 DROP TABLE IF EXISTS comparison.distance_sar_fishing;
 
 CREATE TABLE comparison.distance_sar_fishing AS
-SELECT mmsi, name, q2.t, st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+SELECT mmsi, name, q2.t, st_distance(q1.geom::Geography,q2.geom::Geography, false) as distance
 FROM geographic_features.fishing_areas_eu as q1
 INNER JOIN ais_data.dynamic_sar as q2
 ON TRUE
@@ -38,19 +38,25 @@ COPY comparison.distance_sar_fishing TO '/Users/bernardo/Monet/VesselAI/Prototyp
 DROP TABLE IF EXISTS comparison.distance_brittany_fishing;
 
 CREATE TABLE comparison.distance_brittany_fishing AS
-SELECT libelle_po, name, q2.gid, st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+SELECT libelle_po, q1.gid, st_distance(q1.geom::Geography,q2.geom::Geography, false) as distance
 FROM geographic_features.fishing_areas_eu as q1
 INNER JOIN ports.ports_of_brittany as q2
 ON TRUE
-ORDER BY q2.gid, name;
+ORDER BY q1.gid, q2.gid;
 
-COPY comparison.distance_brittany_fishing TO '/Users/bernardo/Monet/VesselAI/Prototype/Comparisons/Distance/distance_britanny_fishing_postgres.csv' DELIMITER ',';
+COPY comparison.distance_brittany_fishing TO '/Users/bernardo/Monet/VesselAI/Prototype/Comparisons/Distance/distance_brittany_fishing_postgres.csv' DELIMITER ',';
+
+SELECT st_distance(q1.geom::Geography,q2.geom::Geography, false) as distance
+FROM geographic_features.fishing_areas_eu as q1
+INNER JOIN ports.ports_of_brittany as q2
+ON TRUE
+WHERE q2.libelle_po='Île de Molène' AND q1.gid=206;
 
 -- Distance between fao_areas polygons and fishing_areas polygons ()
 DROP TABLE IF EXISTS comparison.distance_fao_fishing;
 
 CREATE TABLE comparison.distance_fao_fishing AS
-SELECT q1.gid as gid1, name, q2.gid as gid2, st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+SELECT q1.gid as gid1, name, q2.gid as gid2, st_distance(q1.geom::Geography,q2.geom::Geography, false) as distance
 FROM geographic_features.fishing_areas_eu as q1
 INNER JOIN geographic_features.fao_areas as q2
 ON TRUE
@@ -59,7 +65,7 @@ ORDER BY q2.gid, q1.gid;
 COPY comparison.distance_fao_fishing TO '/Users/bernardo/Monet/VesselAI/Prototype/Comparisons/Distance/distance_fao_fishing_postgres.csv' DELIMITER ',';
 
 
--- Stopped ships within 500m of a port of brittany during Jan 1,2016 (13 resulting tuples)
+-- Stopped ships within 500m of a port of brittany during Jan 1,2016 (13 resulting tuples) -> TODO Need to analyse these!
 CREATE TABLE comparison.anchored_ships_brittany AS
 SELECT DISTINCT port_name, mmsi, shipname, min_t, max_t, max_t - min_t as dur
 FROM (

@@ -37,7 +37,8 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_october.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.oc_october ADD COLUMN geom Geometry;
+UPDATE environment_data.oc_october SET geom = st_setsrid(st_point(lon,lat),4326);
 
 ---------------- NOVEMBER --------------------
 CREATE TABLE environment_data.oc_november
@@ -57,7 +58,8 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_november.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.oc_november ADD COLUMN geom Geometry;
+UPDATE environment_data.oc_november SET geom = st_setsrid(st_point(lon,lat),4326);
 
 ---------------- DECEMBER --------------------
 CREATE TABLE environment_data.oc_december
@@ -77,7 +79,8 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_december.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.oc_december ADD COLUMN geom Geometry;
+UPDATE environment_data.oc_december SET geom = st_setsrid(st_point(lon,lat),4326);
 
 ---------------- JANUARY --------------------
 
@@ -98,7 +101,8 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_january.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.oc_january ADD COLUMN geom Geometry;
+UPDATE environment_data.oc_january SET geom = st_setsrid(st_point(lon,lat),4326);
 
 ---------------- FEBRUARY --------------------
 
@@ -119,7 +123,8 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_february.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.oc_february ADD COLUMN geom Geometry;
+UPDATE environment_data.oc_february SET geom = st_setsrid(st_point(lon,lat),4326);
 
 ---------------- MARCH --------------------
 
@@ -140,7 +145,8 @@ FROM '/path/to/data/[E1] Ocean Conditions/oc_march.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.oc_march ADD COLUMN geom Geometry;
+UPDATE environment_data.oc_march SET geom = st_setsrid(st_point(lon,lat),4326);
 
 #
 # === Weather data ===
@@ -173,7 +179,10 @@ FROM '/path/to/data/[E2] Weather Conditions/table_weatherStation.csv'
 DELIMITERS ',';
 
 #GEOM COLUMN
-#TODO
+ALTER TABLE environment_data.weather_station ADD COLUMN geom Geometry;
+UPDATE environment_data.weather_station SET geom = st_setsrid(st_point(longitude,latitude),4326);
+
+UPDATE sys.fao_areas SET geom = st_setsrid(geom,4326);
 
 CREATE TABLE environment_data.observations
 (
