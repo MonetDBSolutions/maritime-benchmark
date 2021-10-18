@@ -1,0 +1,4 @@
+CREATE SCHEMA IF NOT EXISTS bench_geo;
+SET SCHEMA = bench_geo;
+CREATE TABLE ais_dynamic (id bigint AUTO_INCREMENT, mmsi integer, status integer, turn double precision, speed double precision, course double precision, heading integer, lon double precision, lat double precision, ts bigint, t Timestamp, geom Geometry, CONSTRAINT dynamic_ships_pkey PRIMARY KEY (id));
+CREATE TABLE ais_static(id bigint AUTO_INCREMENT, sourcemmsi integer, imo integer, callsign text, shipname text, shiptype integer, to_bow integer, to_stern integer, to_starboard integer, to_port integer, eta text, draught double precision, destination text, mothershipmmsi integer, ts bigint, t Timestamp, CONSTRAINT static_ships_pkey PRIMARY KEY (id));
