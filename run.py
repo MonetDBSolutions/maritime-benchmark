@@ -6,20 +6,13 @@ import os
 from timeit import default_timer as timer
 import psycopg2
 import subprocess
-
-#TODO: Should scale be a fraction of the dataset (0.1,...) or the number of records?
-#Scale factor
-#TODO: Should scale only apply to some tables?
-#Maybe -> Leave it for later
-#TODO: Delete intermediate scaled csv files after the run ends
-#Maybe do the caching thing, but only if it takes too much time to do the cut -> Time it
+import logging
 
 #TODO: Start with simpler queries, move on to more meaningful queries
 #TODO: Unify the methods, change Exception to general exception
 #TODO: Time from database server, not external
 #TODO: Sanitize: Save query output results to file
 
-#TODO: Change prints to logging framework
 #TODO: Read from CSV header; Create table from columns of CSV
 #TODO: Format SQL queries; separating them with split on ;
 #TODO: Integrate the server startup (for Monet and Postgres)
@@ -34,12 +27,12 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required = True, default=None)
 parser.add_argument('--system', type=str, help='Database system to benchmark (default is monetdb)', default='monetdb')
 parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
-parser.add_argument('--scale', type=int, help='Benchmark scale - number of records to be imported in size-varying tables', default=0)
+parser.add_argument('--scale', type=float, help='Benchmark scale', default=0)
 
 #Switch (bool) arguments
-parser.add_argument('--debug', help='Turn on traces', dest='debug', action='store_true')
-parser.add_argument('--no-debug', help='Turn off traces (default is on)', dest='debug', action='store_false')
-parser.set_defaults(debug=True)
+parser.add_argument('--debug', help='Turn on debugging log', dest='debug', action='store_true')
+parser.add_argument('--no-debug', help='Turn off debugging log (default is off)', dest='debug', action='store_false')
+parser.set_defaults(debug=False)
 parser.add_argument('--load', help='Turn on loading the data', dest='load', action='store_true')
 parser.add_argument('--no-load', help='Turn off loading the data (default is on)', dest='load', action='store_false')
 parser.set_defaults(load=True)
@@ -71,149 +64,163 @@ load_tables = {
           ]
 }
 
-#Create a new CSV file with a subset of data from an input CSV
-def cutcsv(inputfilename,outputfilename,startindex,endindex):
+def configurelogger():
+    #TODO Add option to log to file
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+#Create a new CSV file with a subset of data from an input CSV, given a scale
+#If the file already exists, use it. We currently don't delete the file after execution
+def scalecsv(inputname, scale):
+    outputfilename = f'{datadir}/{inputname}_{scale}.csv'
+    if os.path.isfile(outputfilename):
+        logger.debug(f"Found already existing csv {outputfilename}")
+        return outputfilename
+    inputfilename = f'{datadir}/{inputname}.csv'
     with open(inputfilename, 'r') as inputfile, open(outputfilename, 'w+') as outputfile:
         try:
             inputlines = inputfile.readlines()
-            outputfile.writelines(inputlines[startindex:endindex])
-        except IOError:
-            print(f"Could not read/write to files")
-            return False
-        return True
+            records_scaled = int(len(inputlines) * scale)
+            outputfile.writelines(inputlines[0:records_scaled])
+            logger.debug(f"Number of records in scaled dataset '{inputname}': {records_scaled}")
+        except IOError as msg:
+            logger.warning("cutcsv() operation failed, using original csv")
+            logger.exception(msg)
+            return inputfilename
+    return outputfilename
+
+
 
 def createschemamonet(cur):
     fname = os.getcwd() + "/sql/monet_ddl.sql"
     try:
         f = open(fname, "r")
         geo_ddl = f.read().splitlines()
-    except IOError:
-        print(f"Could not open/read {fname}")
+    except IOError as msg:
+        logger.exception(msg)
         sys.exit()
-    if debug:
-        print("Creating schema")
-    for d in geo_ddl:
-        if debug:
-            print(d)
+    logger.info("Creating schema")
+    for q in geo_ddl:
+        logger.debug(f"Executing query '{q}'")
         try:
-            cur.execute(d)
+            cur.execute(q)
         except pymonetdb.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
 
 def loadshpmonet(cur):
     totaltime = 0
     for csv_t in load_tables["shape_tables"]:
         query = f'call shpload(\'{datadir}/{csv_t["filename"]}\',\'bench_geo\',\'{csv_t["tablename"]}\');'
-        if debug:
-            print(query)
+        logger.debug(f"Executing query '{query}'")
         start = timer()
         try:
             cur.execute(query)
         except pymonetdb.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
         loadtime = timer() - start
         totaltime += loadtime
-        print("Loaded " + csv_t["tablename"] + " in %6.3f seconds" % loadtime)
+        logger.info("Loaded " + csv_t["tablename"] + " in %6.3f seconds" % loadtime)
     return totaltime
 
 def loadcsvmonet(cur):
     totaltime = 0
     for csv_t in load_tables["csv_tables"]:
-        if "scalable" in csv_t and args.scale > 0:
-            outputfilename = f'{datadir}/{csv_t["filename"]}_{args.scale}.csv'
-            if cutcsv(f'{datadir}/{csv_t["filename"]}.csv',outputfilename,0,args.scale):
-                filename = outputfilename
-            else:
-                print("cutcsv() operation failed, using original csv")
-                filename = f'{datadir}/{csv_t["filename"]}.csv'
+        if "scalable" in csv_t and args.scale != 0:
+            filename = scalecsv(csv_t["filename"],args.scale)
         else:
             filename = f'{datadir}/{csv_t["filename"]}.csv'
 
         query = f'COPY OFFSET 2 INTO {csv_t["tablename"]} ({csv_t["columns"]}) FROM \'{filename}\' \
         ({csv_t["columns"]}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
-        if debug:
-            print(query)
+        logger.debug(f"Executing query '{query}'")
         start = timer()
         try:
             cur.execute(query)
         except pymonetdb.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
 
         if "timestamp" in csv_t:
             try:
                 cur.execute(f'UPDATE {csv_t["tablename"]} SET t = epoch(cast({csv_t["timestamp"]} as int));')
             except pymonetdb.DatabaseError as msg:
-                print('Exception', msg)
+                logger.exception(msg)
                 continue
         if "geom" in csv_t:
             try:
                 cur.execute(f'UPDATE {csv_t["tablename"]} SET geom = ST_SetSRID(ST_MakePoint({csv_t["geom"]}),4326);')
             except pymonetdb.DatabaseError as msg:
-                print('Exception', msg)
+                logger.exception(msg)
                 continue
         loadtime = timer() - start
         totaltime += loadtime
-        print("Loaded " + filename + " in %6.3f seconds" % loadtime)
-        #TODO Delete temporary csv file
+        if "scalable" in csv_t and args.scale > 0:
+            logger.info("Loaded " + csv_t["tablename"] + "_" + str(args.scale) + " in %6.3f seconds" % loadtime)
+        else:
+            logger.info("Loaded " + filename + " in %6.3f seconds" % loadtime)
     return totaltime
 
 def loaddatamonet(cur):
-    if debug:
-        print("\nLoading data")
+    logger.info("Loading data")
     totaltime = loadcsvmonet(cur)
     totaltime += loadshpmonet(cur)
-
-    print("All loads in %6.3f seconds" % totaltime)
+    logger.info("All loads in %6.3f seconds" % totaltime)
 
 def runqueriesmonet(cur):
     try:
         fname = os.getcwd() + "/sql/monet_queries.sql"
         f = open(fname, "r")
-    except IOError:
-        print(f"Could not open/read {fname}")
+    except IOError as msg:
+        logger.exception(msg)
         sys.exit()
     geo_queries = f.read().splitlines()
 
-    if debug:
-        print("\nRunning queries")
+    logger.info("Running queries")
 
     totaltime = 0
     q_id = 1
     for q in geo_queries:
         if q.startswith("--"):
             continue
-        if debug:
-            print(q)
+        logger.debug(f"Executing query '{q}'")
         start = timer()
         try:
             cur.execute(q)
         except pymonetdb.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
         querytime = timer() - start
         totaltime += querytime
-        print("Executed query " + str(q_id) + " in %6.3f seconds" % querytime)
+        logger.info("Executed query " + str(q_id) + " in %6.3f seconds" % querytime)
         q_id +=1
-    print("Executed all queries in %6.3f seconds" % totaltime)
+    logger.info("Executed all queries in %6.3f seconds" % totaltime)
 
 def dropschemamonet(cur):
-    if debug:
-        print("\nDropping schema")
+    logger.info("Dropping schema")
     cur.execute("SET SCHEMA = sys;")
     cur.execute("DROP SCHEMA bench_geo cascade;")
+
+def enablequeryhistory(cur):
+    logger.info("Enabling query history")
+    cur.execute("call sys.querylog_enable();")
 
 def benchmarkmonet():
     conn = pymonetdb.connect(args.database, autocommit=True)
     if not conn:
-        print(f'Could not access the database {args.database}')
+        logger.error(f'Could not access the database {args.database}')
         sys.exit()
-    if debug:
-        print(f'MonetDB\nConnected to database {args.database}')
+    logger.info(f'MonetDB: Connected to database {args.database}')
 
     cur = conn.cursor()
+    #enablequeryhistory(cur)
     if args.load:
         createschemamonet(cur)
         loaddatamonet(cur)
@@ -228,58 +235,53 @@ def createschemapsql(cur):
     try:
         f = open(fname, "r")
         geo_ddl = f.read().splitlines()
-    except IOError:
-        print(f"Could not open/read {fname}")
+    except IOError as msg:
+        logger.exception(msg)
         sys.exit()
-    if debug:
-        print("Creating schema")
-    for d in geo_ddl:
-        if debug:
-            print(d)
+    logger.info("Creating schema")
+    for q in geo_ddl:
+        logger.debug(f"Executing query '{q}'")
         try:
-            cur.execute(d)
+            cur.execute(q)
         except psycopg2.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
 
 def loadcsvpsql(cur):
     totaltime = 0
     for csv_t in load_tables["csv_tables"]:
-        if "scalable" in csv_t and args.scale > 0:
-            outputfilename = f'{datadir}/{csv_t["filename"]}_{args.scale}.csv'
-            if cutcsv(f'{datadir}/{csv_t["filename"]}.csv',outputfilename,0,args.scale):
-                filename = outputfilename
-            else:
-                print("cutcsv() operation failed, using original csv")
-                filename = f'{datadir}/{csv_t["filename"]}.csv'
+        if "scalable" in csv_t and args.scale != 0:
+            filename = scalecsv(csv_t["filename"],args.scale)
         else:
             filename = f'{datadir}/{csv_t["filename"]}.csv'
         #TODO Change to psycopg copy_from() method?
         query = f'COPY {csv_t["tablename"]} ({csv_t["columns"]}) FROM \'{filename}\' delimiter \',\' csv HEADER;'
-        if debug:
-            print(query)
+        logger.debug(f"Executing query '{query}'")
         start = timer()
         try:
             cur.execute(query)
         except psycopg2.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
 
         if "timestamp" in csv_t:
             try:
                 cur.execute(f'UPDATE {csv_t["tablename"]} SET t = to_timestamp({csv_t["timestamp"]});')
             except psycopg2.DatabaseError as msg:
-                print('Exception', msg)
+                logger.exception(msg)
                 continue
         if "geom" in csv_t:
             try:
                 cur.execute(f'UPDATE {csv_t["tablename"]} SET geom = ST_SetSRID(ST_MakePoint({csv_t["geom"]}),4326);')
             except psycopg2.DatabaseError as msg:
-                print('Exception', msg)
+                logger.exception(msg)
                 continue
         loadtime = timer() - start
         totaltime += loadtime
-        print("Loaded " + filename + " in %6.3f seconds" % loadtime)
+        if "scalable" in csv_t and args.scale > 0:
+            logger.info("Loaded " + csv_t["tablename"] + "_" + str(args.scale) + " in %6.3f seconds" % loadtime)
+        else:
+            logger.info("Loaded " + filename + " in %6.3f seconds" % loadtime)
     return totaltime
 
 #PostGIS extension can only be in one schema at a time.
@@ -298,14 +300,13 @@ def loadshppsql():
     for csv_t in load_tables["shape_tables"]:
         #TODO Some shapefiles can have different SRID
         query = f'shp2pgsql -I -s 4326 \'{datadir}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
-        if debug:
-            print(query)
+        logger.debug(f"Executing command '{query}'")
         start = timer()
         #TODO Change to subprocess.check_output()
         subprocess.run(query, shell=True, stdout=subprocess.DEVNULL)
         loadtime = timer() - start
         totaltime += loadtime
-        print("Loaded " + csv_t["tablename"] + " in %6.3f seconds" % loadtime)
+        logger.info("Loaded " + csv_t["tablename"] + " in %6.3f seconds" % loadtime)
     return totaltime
 
 def loaddatapsql(cur):
@@ -313,7 +314,7 @@ def loaddatapsql(cur):
     try:
         cur.execute("select PostGIS_Lib_Version();")
     except psycopg2.DatabaseError as msg:
-        print('Exception', msg)
+        logger.exception(msg)
         return
 
     result = cur.fetchone()
@@ -323,60 +324,55 @@ def loaddatapsql(cur):
         #Default value, latest version
         postgisversion = "3.1.2"
 
-    if debug:
-        print("\nLoading data")
+    logger.info("Loading data")
 
     totaltime = loadcsvpsql(cur)
     movepostgisextension(cur,"public",postgisversion)
     totaltime += loadshppsql()
     movepostgisextension(cur, "bench_geo",postgisversion)
 
-    print("All loads in %6.3f seconds" % totaltime)
+    logger.info("All loads in %6.3f seconds" % totaltime)
 
 def runqueriespsql(cur):
     try:
         fname = os.getcwd() + "/sql/psql_queries.sql"
         f = open(fname, "r")
-    except IOError:
-        print(f"Could not open/read {fname}")
+    except IOError as msg:
+        logger.exception(msg)
         sys.exit()
     geo_queries = f.read().splitlines()
 
-    if debug:
-        print("\nRunning queries")
+    logger.info("Running queries")
 
     totaltime = 0
     q_id = 1
     for q in geo_queries:
         if q.startswith("--"):
             continue
-        if debug:
-            print(q)
+        logger.debug(f"Executing query '{q}'")
         start = timer()
         try:
             cur.execute(q)
         except psycopg2.DatabaseError as msg:
-            print('Exception', msg)
+            logger.exception(msg)
             continue
         querytime = timer() - start
         totaltime += querytime
-        print("Executed query " + str(q_id) + " in %6.3f seconds" % querytime)
+        logger.info("Executed query " + str(q_id) + " in %6.3f seconds" % querytime)
         q_id +=1
-    print("Executed all queries in %6.3f seconds" % totaltime)
+    logger.info("Executed all queries in %6.3f seconds" % totaltime)
 
 def dropschemapsql(cur):
-    if debug:
-        print("\nDropping schema")
+    logger.info("Dropping schema")
     cur.execute("SET SCHEMA 'public';")
     cur.execute("DROP SCHEMA bench_geo cascade;")
 
 def benchmarkpsql():
     conn = psycopg2.connect(f"dbname={args.database}")
     if not conn:
-        print(f'Could not access the database {args.database}')
+        logger.error(f'Could not access the database {args.database}')
         sys.exit()
-    if debug:
-        print(f'Postgres\nConnected to database {args.database}')
+    logger.info(f'Postgres: Connected to database {args.database}')
     conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     cur = conn.cursor()
     if args.load:
@@ -390,13 +386,15 @@ def benchmarkpsql():
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    debug = args.debug
     datadir = args.data
+
+    #Configure logger
+    logger = logging.getLogger(__name__)
+    configurelogger()
 
     if args.system == 'monetdb' or args.system == 'monet' or args.system == 'mdb':
         benchmarkmonet()
     elif args.system == 'postgres' or args.system == 'psql'or args.system == 'postgis':
         benchmarkpsql()
     else:
-        print('Choose a system to benchmark: monetdb (alias mdb, monet) or postgis (alias psql, postgres)')
-
+        logger.error('Choose a system to benchmark: monetdb (alias mdb, monet) or postgis (alias psql, postgres)')

@@ -36,3 +36,145 @@ Not Used:
         - wind_direction
         - observations
         - oc_october, oc_november, ...
+
+
+def createschemamonet(cur):
+    fname = os.getcwd() + "/sql/monet_ddl.sql"
+    try:
+        f = open(fname, "r")
+        geo_ddl = f.read().splitlines()
+    except IOError:
+        print(f"Could not open/read {fname}")
+        sys.exit()
+    if debug:
+        print("Creating schema")
+    for d in geo_ddl:
+        if debug:
+            print(d)
+        try:
+            cur.execute(d)
+        except pymonetdb.DatabaseError as msg:
+            print('Exception', msg)
+            continue
+
+def loadshpmonet(cur):
+    totaltime = 0
+    for csv_t in load_tables["shape_tables"]:
+        query = f'call shpload(\'{datadir}/{csv_t["filename"]}\',\'bench_geo\',\'{csv_t["tablename"]}\');'
+        if debug:
+            print(query)
+        start = timer()
+        try:
+            cur.execute(query)
+        except pymonetdb.DatabaseError as msg:
+            print('Exception', msg)
+            continue
+        loadtime = timer() - start
+        totaltime += loadtime
+        print("Loaded " + csv_t["tablename"] + " in %6.3f seconds" % loadtime)
+    return totaltime
+
+def loadcsvmonet(cur):
+    totaltime = 0
+    for csv_t in load_tables["csv_tables"]:
+        if "scalable" in csv_t and args.scale > 0:
+            outputfilename = f'{datadir}/{csv_t["filename"]}_{args.scale}.csv'
+            if cutcsv(f'{datadir}/{csv_t["filename"]}.csv',outputfilename,0,args.scale):
+                filename = outputfilename
+            else:
+                print("cutcsv() operation failed, using original csv")
+                filename = f'{datadir}/{csv_t["filename"]}.csv'
+        else:
+            filename = f'{datadir}/{csv_t["filename"]}.csv'
+
+        query = f'COPY OFFSET 2 INTO {csv_t["tablename"]} ({csv_t["columns"]}) FROM \'{filename}\' \
+        ({csv_t["columns"]}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
+        if debug:
+            print(query)
+        start = timer()
+        try:
+            cur.execute(query)
+        except pymonetdb.DatabaseError as msg:
+            print('Exception', msg)
+            continue
+
+        if "timestamp" in csv_t:
+            try:
+                cur.execute(f'UPDATE {csv_t["tablename"]} SET t = epoch(cast({csv_t["timestamp"]} as int));')
+            except pymonetdb.DatabaseError as msg:
+                print('Exception', msg)
+                continue
+        if "geom" in csv_t:
+            try:
+                cur.execute(f'UPDATE {csv_t["tablename"]} SET geom = ST_SetSRID(ST_MakePoint({csv_t["geom"]}),4326);')
+            except pymonetdb.DatabaseError as msg:
+                print('Exception', msg)
+                continue
+        loadtime = timer() - start
+        totaltime += loadtime
+        print("Loaded " + filename + " in %6.3f seconds" % loadtime)
+        #TODO Delete temporary csv file
+    return totaltime
+
+def loaddatamonet(cur):
+    if debug:
+        print("\nLoading data")
+    totaltime = loadcsvmonet(cur)
+    totaltime += loadshpmonet(cur)
+
+    print("All loads in %6.3f seconds" % totaltime)
+
+def runqueriesmonet(cur):
+    try:
+        fname = os.getcwd() + "/sql/monet_queries.sql"
+        f = open(fname, "r")
+    except IOError:
+        print(f"Could not open/read {fname}")
+        sys.exit()
+    geo_queries = f.read().splitlines()
+
+    if debug:
+        print("\nRunning queries")
+
+    totaltime = 0
+    q_id = 1
+    for q in geo_queries:
+        if q.startswith("--"):
+            continue
+        if debug:
+            print(q)
+        start = timer()
+        try:
+            cur.execute(q)
+        except pymonetdb.DatabaseError as msg:
+            print('Exception', msg)
+            continue
+        querytime = timer() - start
+        totaltime += querytime
+        print("Executed query " + str(q_id) + " in %6.3f seconds" % querytime)
+        q_id +=1
+    print("Executed all queries in %6.3f seconds" % totaltime)
+
+def dropschemamonet(cur):
+    if debug:
+        print("\nDropping schema")
+    cur.execute("SET SCHEMA = sys;")
+    cur.execute("DROP SCHEMA bench_geo cascade;")
+
+def benchmarkmonet():
+    conn = pymonetdb.connect(args.database, autocommit=True)
+    if not conn:
+        print(f'Could not access the database {args.database}')
+        sys.exit()
+    if debug:
+        print(f'MonetDB\nConnected to database {args.database}')
+
+    cur = conn.cursor()
+    if args.load:
+        createschemamonet(cur)
+        loaddatamonet(cur)
+    if args.query:
+        runqueriesmonet(cur)
+    if args.drop:
+        dropschemamonet(cur)
+    conn.close()
