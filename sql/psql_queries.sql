@@ -1,6 +1,15 @@
-CREATE TABLE trajectory_segments AS SELECT mmsi, t1, t2, p1, p2, speed1, speed2, st_makeline(p1,p2) as segment FROM (SELECT mmsi, LEAD(mmsi) OVER (ORDER BY mmsi, t) as mmsi2, t AS t1, LEAD(t) OVER (ORDER BY mmsi, t) as t2, speed AS speed1, LEAD(speed) OVER (ORDER BY mmsi, t) as speed2, geom AS p1, LEAD(geom) OVER (ORDER BY mmsi, t) as p2 FROM ais_dynamic) as q1 WHERE mmsi = mmsi2;
-CREATE TABLE trajectory AS SELECT mmsi, st_collect(segment) as geom FROM trajectory_segments GROUP BY mmsi;
-CREATE TABLE distance_trajectory_port AS SELECT mmsi, libelle_po as port_name, st_distance(q1.geom::Geography,q2.geom::Geography, false) as distance FROM brittany_ports as q1 JOIN trajectory as q2 ON TRUE;
-CREATE TABLE trajectory_close_to_port AS SELECT q1.mmsi as ship, q2.gid as port, st_distance(q1.geom::Geography,q2.geom::Geography) as distance FROM trajectory as q1 JOIN brittany_ports as q2 ON st_dwithin(q1.geom::Geography,q2.geom::Geography,500);
-CREATE TABLE ships_stop_at_port AS SELECT libelle_po as port_name, mmsi, min(q2.t) as min_t, max(q2.t) as max_t, max(q2.t) - min(q2.t) as dur, min(st_distance(q1.geom::Geography,q2.geom::Geography)) as dist FROM brittany_ports as q1 INNER JOIN ais_dynamic as q2 ON q2.speed = 0 AND ST_DWithin(q1.geom::Geography,q2.geom::Geography,500) GROUP BY libelle_po, mmsi;
--- TODO Add fishing_ships query
+-- Query 1: Trajectory segments
+CREATE TABLE trajectory_segments AS
+  SELECT mmsi, t1, t2, p1, p2, speed1, speed2, st_makeline(p1,p2) as segment
+  FROM (
+    SELECT mmsi, LEAD(mmsi) OVER (ORDER BY mmsi, t) as mmsi2,
+           t AS t1, LEAD(t) OVER (ORDER BY mmsi, t) as t2,
+           speed AS speed1, LEAD(speed) OVER (ORDER BY mmsi, t) as speed2,
+           geom AS p1, LEAD(geom) OVER (ORDER BY mmsi, t) as p2
+    FROM ais_dynamic) as q1
+  WHERE mmsi = mmsi2;
+-- Query 2: Aggregate trajectories
+CREATE TABLE trajectory AS
+  SELECT mmsi, st_collect(segment) as geom
+  FROM trajectory_segments
+  GROUP BY mmsi;

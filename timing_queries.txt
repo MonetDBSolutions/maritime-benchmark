@@ -1,0 +1,45 @@
+== MONETDB ==
+#Enable Query History
+call sys.querylog_enable();
+
+#Disable Query History
+call sys.querylog_disable();
+
+#Comparison between server times and python client times
+#Server
+2021-10-20 15:12:43,931: INFO: Loaded ais_dynamic_0.001 in  0.188 seconds
+2021-10-20 15:12:43,958: INFO: Loaded brittany_ports in  0.018 seconds
+2021-10-20 15:12:44,077: INFO: Executed query 1 in  0.088 seconds
+2021-10-20 15:12:44,108: INFO: Executed query 2 in  0.020 seconds
+2021-10-20 15:12:49,748: INFO: Executed query 3 in  5.629 seconds
+2021-10-20 15:12:55,796: INFO: Executed query 4 in  6.039 seconds
+2021-10-20 15:12:58,144: INFO: Executed query 5 in  2.336 seconds
+#Python
+2021-10-20 15:12:43,931: INFO: CLIENT: Loaded ais_dynamic_0.001 in  0.235 seconds
+2021-10-20 15:12:43,958: INFO: CLIENT: Loaded brittany_ports in  0.021 seconds
+2021-10-20 15:12:44,069: INFO: CLIENT: Executed query 1 in  0.111 seconds
+2021-10-20 15:12:44,102: INFO: CLIENT: Executed query 2 in  0.025 seconds
+2021-10-20 15:12:49,741: INFO: CLIENT: Executed query 3 in  5.633 seconds
+2021-10-20 15:12:55,790: INFO: CLIENT: Executed query 4 in  6.043 seconds
+2021-10-20 15:12:58,137: INFO: CLIENT: Executed query 5 in  2.341 seconds
+
+
+== POSTGRES ==
+#Enable query duration logging (postgresql.conf)
+log_duration = on
+
+#Comparison between server times and python client times
+#Server
+2021-10-20 14:41:01.991 CEST [63127] LOG:  duration: 334.675
+2021-10-20 14:02:18.684 CEST [62031] LOG:  duration: 95.959 ms
+2021-10-20 14:02:18.722 CEST [62031] LOG:  duration: 37.123 ms
+2021-10-20 14:02:20.745 CEST [62031] LOG:  duration: 2022.547 ms
+2021-10-20 14:02:22.813 CEST [62031] LOG:  duration: 2067.902 ms
+2021-10-20 14:02:26.855 CEST [62031] LOG:  duration: 4041.362 ms
+#Python
+2021-10-20 14:41:01,991: INFO: Loaded ais_dynamic_0.001 in  0.335 seconds
+2021-10-20 14:02:18,684: INFO: Executed query 1 in  0.096 seconds
+2021-10-20 14:02:18,722: INFO: Executed query 2 in  0.038 seconds
+2021-10-20 14:02:20,745: INFO: Executed query 3 in  2.023 seconds
+2021-10-20 14:02:22,814: INFO: Executed query 4 in  2.068 seconds
+2021-10-20 14:02:26,855: INFO: Executed query 5 in  4.042 seconds

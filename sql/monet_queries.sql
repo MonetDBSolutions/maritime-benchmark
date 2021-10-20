@@ -1,6 +1,15 @@
-CREATE TABLE trajectory_segments AS SELECT mmsi, t1, t2, p1, p2, speed1, speed2, st_makeline(p1,p2) as segment FROM (SELECT mmsi, LEAD(mmsi) OVER (ORDER BY mmsi, t) as mmsi2, t AS t1, LEAD(t) OVER (ORDER BY mmsi, t) as t2, speed AS speed1, LEAD(speed) OVER (ORDER BY mmsi, t) as speed2, geom AS p1, LEAD(geom) OVER (ORDER BY mmsi, t) as p2 FROM ais_dynamic) as q1 WHERE mmsi = mmsi2;
-CREATE TABLE trajectory AS SELECT mmsi, st_collect(segment) as geom FROM trajectory_segments GROUP BY mmsi;
-CREATE TABLE distance_trajectory_port AS SELECT mmsi, libelle_po as port_name, st_distancegeographic(q1.geom,q2.geom) as distance FROM brittany_ports as q1 JOIN trajectory as q2 ON TRUE;
-CREATE TABLE trajectory_close_to_port AS SELECT q1.mmsi as ship, q2.gid as port, st_distancegeographic(q1.geom,q2.geom) as distance FROM trajectory as q1 JOIN brittany_ports as q2 ON st_dwithingeographic(q1.geom,q2.geom,500);
-CREATE TABLE ships_stop_at_port AS SELECT libelle_po as port_name, mmsi, min(q2.t) as min_t, max(q2.t) as max_t, max(q2.t) - min(q2.t) as dur, min(st_distancegeographic(q1.geom,q2.geom)) as dist FROM brittany_ports as q1 INNER JOIN ais_dynamic as q2 ON q2.speed = 0 AND ST_DWithinGeographic(q1.geom,q2.geom,500) GROUP BY libelle_po, mmsi;
---CREATE TABLE ships_fishing AS SELECT DISTINCT mmsi, shipname, total_duration_s FROM ( SELECT mmsi, SUM(duration_s) as total_duration_s FROM ( SELECT mmsi, MIN(t) AS min_t, MAX(t) AS max_t, MAX(t) - MIN(t) AS duration_s FROM (SELECT ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY rn) - rn AS grp, speed, mmsi, t FROM  (	SELECT mmsi, rn, speed, t FROM (	SELECT mmsi, speed, t, ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY t) AS rn	FROM ais_data.dynamic_ships	WHERE t >= str_to_timestamp('22-01-2016 00:00', '%d-%m-%Y %H:%M')	AND t < str_to_timestamp('23-01-2016 00:00', '%d-%m-%Y %H:%M')	AND mmsi < 999999999) AS q1 WHERE speed >= 2.5 AND speed <= 3.5) AS q2) AS q3 GROUP BY mmsi, grp ORDER  BY mmsi, grp ) as q4 WHERE q4.duration_s > INTERVAL '15' SECOND GROUP BY mmsi ) as q5 LEFT JOIN ais_data.static_ships as q6 ON q5.mmsi = q6.sourcemmsi;
+-- Query 1: Trajectory segments
+CREATE TABLE trajectory_segments AS
+  SELECT mmsi, t1, t2, p1, p2, speed1, speed2, st_makeline(p1,p2) as segment
+  FROM (
+    SELECT mmsi, LEAD(mmsi) OVER (ORDER BY mmsi, t) as mmsi2,
+           t AS t1, LEAD(t) OVER (ORDER BY mmsi, t) as t2,
+           speed AS speed1, LEAD(speed) OVER (ORDER BY mmsi, t) as speed2,
+           geom AS p1, LEAD(geom) OVER (ORDER BY mmsi, t) as p2
+    FROM ais_dynamic) as q1
+  WHERE mmsi = mmsi2;
+-- Query 2: Aggregate trajectories
+CREATE TABLE trajectory AS
+  SELECT mmsi, st_collect(segment) as geom
+  FROM trajectory_segments
+  GROUP BY mmsi;
