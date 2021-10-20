@@ -11,13 +11,11 @@ from psycopg2.extras import MinTimeLoggingConnection
 
 #TODO: Time from database server in Postgres -> How do we parse the log to get query duration info?
 
-#TODO: Start with simpler queries, move on to more meaningful queries
-#TODO: Format SQL queries; separating them with split on ;
-
 #TODO: Unify the methods, change Exception to general exception
 #TODO: Sanitize: Save query output results to file
 #TODO: Read from CSV header; Create table from columns of CSV
 #TODO: Integrate the server startup (for Monet and Postgres)
+#TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
 
 
 parser = argparse.ArgumentParser(
@@ -44,6 +42,9 @@ parser.set_defaults(query=True)
 parser.add_argument('--drop', help='Turn on dropping the data after execution', dest='drop', action='store_true')
 parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop', action='store_false')
 parser.set_defaults(drop=True)
+parser.add_argument('--export', help='Turn on exporting query tables after execution', dest='export', action='store_true')
+parser.add_argument('--no-export', help='Turn off exporting query tables after execution (default is off)', dest='export', action='store_false')
+parser.set_defaults(export=False)
 
 load_tables = {
   "csv_tables":
@@ -76,6 +77,16 @@ def configure_logger():
     formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+#Open SQL file, read content and split strings on semicolon
+def open_and_split_sql_file(sql_filename):
+    try:
+        filename = os.getcwd() + "/sql/" + sql_filename
+        f = open(filename, "r")
+    except IOError as msg:
+        logger.exception(msg)
+        sys.exit()
+    return f.read().split(";")
 
 #Create a new CSV file with a subset of data from an input CSV, given a scale factor (only < 1 SF allowed)
 #If the file already exists, use it. We currently don't delete the file after execution
@@ -112,15 +123,11 @@ def get_last_exec_time_monet(cur):
     return result[0]
 
 def create_schema_monet(cur):
-    filename = os.getcwd() + "/sql/monet_ddl.sql"
-    try:
-        f = open(filename, "r")
-        geo_ddl = f.read().splitlines()
-    except IOError as msg:
-        logger.exception(msg)
-        sys.exit()
+    geo_ddl = open_and_split_sql_file("monet_ddl.sql")
     logger.debug("Creating schema")
     for q in geo_ddl:
+        if not q:
+            continue
         logger.debug(f"Executing query '{q}'")
         try:
             cur.execute(q)
@@ -146,7 +153,6 @@ def load_shp_monet(cur):
         logger.info("Loaded %s in %6.3f seconds" % (csv_t["tablename"],load_time))
     return total_time
 
-#TODO: Should I count the last execution time everytime a query is executed or keep the counting queries strategy?
 def load_csv_monet(cur):
     total_time = 0
     for csv_t in load_tables["csv_tables"]:
@@ -196,13 +202,7 @@ def load_data_monet(cur):
     logger.info("All loads in %6.3f seconds" % total_time)
 
 def run_queries_monet(cur):
-    try:
-        filename = os.getcwd() + "/sql/monet_queries.sql"
-        f = open(filename, "r")
-    except IOError as msg:
-        logger.exception(msg)
-        sys.exit()
-    geo_queries = f.read().split(";")
+    geo_queries = open_and_split_sql_file("monet_queries.sql")
     logger.debug("Running queries")
 
     total_time = 0
@@ -224,6 +224,23 @@ def run_queries_monet(cur):
         logger.info("Executed query %s in %6.3f seconds" % (query_id, query_time))
         query_id +=1
     logger.info("Executed all queries in %6.3f seconds" % total_time)
+
+def export_query_tables_monet(cur):
+    geo_export = open_and_split_sql_file("monet_export.sql")
+    logger.debug("Exporting data")
+
+    for q in geo_export:
+        if not q:
+            continue
+        #Replace placeholder %OUT% string with output directory
+        #TODO: Change os.getcwd()?
+        q = q.replace("%OUT%",os.getcwd()+"/out")
+        logger.debug(f"Executing export query '{q}'")
+        try:
+            cur.execute(q)
+        except pymonetdb.DatabaseError as msg:
+            logger.exception(msg)
+            continue
 
 def drop_schema_monet(cur):
     logger.debug("Dropping schema")
@@ -251,20 +268,18 @@ def benchmark_monet():
         load_data_monet(cur)
     if args.query:
         run_queries_monet(cur)
+    if args.export:
+        export_query_tables_monet(cur)
     if args.drop:
         drop_schema_monet(cur)
     conn.close()
 
 def create_schema_psql(cur):
-    filename = os.getcwd() + "/sql/psql_ddl.sql"
-    try:
-        f = open(filename, "r")
-        geo_ddl = f.read().splitlines()
-    except IOError as msg:
-        logger.exception(msg)
-        sys.exit()
+    geo_ddl = open_and_split_sql_file("psql_ddl.sql")
     logger.debug("Creating schema")
     for q in geo_ddl:
+        if not q:
+            continue
         logger.debug(f"Executing query '{q}'")
         try:
             cur.execute(q)
@@ -328,7 +343,7 @@ def load_shp_psql():
         logger.debug(f"Executing command '{query}'")
         start = timer()
         try:
-            subprocess.run(query, shell=True, stdout=subprocess.DEVNULL)
+            subprocess.check_output(query, shell=True,stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as msg:
             logger.exception(msg)
         load_time = timer() - start
@@ -361,13 +376,7 @@ def load_data_psql(cur):
     logger.info("All loads in %6.3f seconds" % total_time)
 
 def run_queries_psql(cur):
-    try:
-        filename = os.getcwd() + "/sql/psql_queries.sql"
-        f = open(filename, "r")
-    except IOError as msg:
-        logger.exception(msg)
-        sys.exit()
-    geo_queries = f.read().split(";")
+    geo_queries = open_and_split_sql_file("psql_queries.sql")
     logger.debug("Running queries")
 
     total_time = 0
@@ -388,6 +397,23 @@ def run_queries_psql(cur):
         q_id +=1
     logger.info("Executed all queries in %6.3f seconds" % total_time)
 
+def export_query_tables_psql(cur):
+    geo_export = open_and_split_sql_file("psql_export.sql")
+    logger.debug("Exporting data")
+
+    for q in geo_export:
+        if not q:
+            continue
+        #Replace placeholder %OUT% string with output directory
+        #TODO: Change os.getcwd()?
+        q = q.replace("%OUT%",os.getcwd()+"/out")
+        logger.debug(f"Executing export query '{q}'")
+        try:
+            cur.execute(q)
+        except psycopg2.DatabaseError as msg:
+            logger.exception(msg)
+            continue
+
 def drop_schema_psql(cur):
     logger.debug("Dropping schema")
     cur.execute("SET SCHEMA 'public';")
@@ -406,6 +432,8 @@ def benchmark_psql():
         load_data_psql(cur)
     if args.query:
         run_queries_psql(cur)
+    if args.export:
+        export_query_tables_psql(cur)
     if args.drop:
         drop_schema_psql(cur)
     conn.close()
