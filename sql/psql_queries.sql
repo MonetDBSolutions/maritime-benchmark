@@ -14,7 +14,7 @@ CREATE TABLE trajectory AS
   FROM trajectory_segments
   GROUP BY mmsi;
 -- Query 3: Distance between ships and ports (Point-Point distance)
-CREATE TABLE ship_port_distance AS
+--CREATE TABLE ship_port_distance AS
   SELECT mmsi, libelle_po as port, q1.t as position_time,
          st_distance(q1.geom::Geography,q2.geom::Geography) as distance
   FROM ais_dynamic as q1

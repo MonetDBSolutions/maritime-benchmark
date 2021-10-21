@@ -7,16 +7,21 @@ from timeit import default_timer as timer
 import psycopg2
 import subprocess
 import logging
-from psycopg2.extras import MinTimeLoggingConnection
+import datetime
+import csv
 
-#TODO: Time from database server in Postgres -> How do we parse the log to get query duration info?
+#TODO: Version number in txt metadata file, add MDB commit hash
 
-#TODO: Unify the methods, change Exception to general exception
-#TODO: Sanitize: Save query output results to file
+#TODO: Pass number of records to COPY INTO commands
+#TODO: Use the MinTimeLogger from extras (psql)
+#TODO: Abstract classes -> Unify the methods, change Exception to general exception
+
+#TODO: Time from database server in Postgres -> Leave it for now
+
+#TODO: Import download data script into here?
 #TODO: Read from CSV header; Create table from columns of CSV
 #TODO: Integrate the server startup (for Monet and Postgres)
 #TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
-
 
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',
@@ -25,7 +30,7 @@ parser = argparse.ArgumentParser(
     ''')
 #Program arguments
 parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required = True, default=None)
-parser.add_argument('--system', type=str, help='Database system to benchmark (default is monetdb)', default='monetdb')
+parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
 parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
 parser.add_argument('--scale', type=float, help='Benchmark scale factor (currently only values < 1 allowed)', default=0)
 
@@ -67,6 +72,17 @@ load_tables = {
           ]
 }
 
+results = {
+    "monet": [],
+    "psql": []
+}
+
+results_header = ['SF','Operation','Monet_Server_Time','Monet_Client_Time','PSQL_Server_Time','PSQL_Client_Time']
+
+psql_version = None
+postgis_version = None
+monet_version = None
+
 def configure_logger():
     #TODO Add option to log to file
     if args.debug:
@@ -77,6 +93,48 @@ def configure_logger():
     formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+def get_postgis_version(cur):
+    global postgis_version
+    try:
+        cur.execute("select PostGIS_Lib_Version();")
+    except psycopg2.DatabaseError as msg:
+        logger.exception(msg)
+        return
+
+    result = cur.fetchone()
+    if result is not None:
+        postgis_version = result[0]
+    else:
+        postgis_version = "0"
+
+def get_psql_version(cur):
+    global psql_version
+    try:
+        cur.execute("SHOW server_version;")
+    except psycopg2.DatabaseError as msg:
+        logger.exception(msg)
+        return
+
+    result = cur.fetchone()
+    if result is not None:
+        psql_version = result[0]
+    else:
+        psql_version = "0"
+
+def get_monet_version(cur):
+    global monet_version
+    try:
+        cur.execute("select value from sys.env() where name = 'monet_version';")
+    except pymonetdb.DatabaseError as msg:
+        logger.exception(msg)
+        return
+
+    result = cur.fetchone()
+    if result is not None:
+        monet_version = result[0]
+    else:
+        monet_version = "0"
 
 #Open SQL file, read content and split strings on semicolon
 def open_and_split_sql_file(sql_filename):
@@ -110,6 +168,33 @@ def scale_csv(input_name, scale):
             logger.exception(msg)
             return input_file_name
     return output_file_name
+
+def register_result(system,scale,operation,server_time,client_time):
+    result = {
+        "scale": scale,
+        "operation": operation,
+        "server_time": server_time,
+        "client_time": client_time
+    }
+    results[system].append(result)
+
+def write_results_csv():
+    now = datetime.datetime.now()
+    monet_array = results['monet']
+    psql_array = results['psql']
+    with open(f'{os.getcwd()}/results/result_'
+              f'{now.strftime("%d")}-{now.strftime("%m")}_{now.strftime("%H")}:{now.strftime("%M")}_('
+              f'{monet_version}_{psql_version}_{postgis_version}).csv', 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(results_header)
+        #TODO: Is this okay?
+        line_count = len(monet_array)
+        for i in range(line_count):
+            monet_result = monet_array[i]
+            psql_result = psql_array[i]
+            writer.writerow([f'{monet_result["scale"]}',f'{monet_result["operation"]}',
+                            f'{monet_result["server_time"]}',f'{monet_result["client_time"]}',
+                            f'{psql_result["server_time"]}',f'{psql_result["client_time"]}'])
 
 def get_last_exec_time_monet(cur):
     try:
@@ -149,8 +234,9 @@ def load_shp_monet(cur):
         end = timer() - start
         load_time = get_last_exec_time_monet(cur)
         total_time += load_time
+        register_result('monet',str(args.scale),f'SHP_{csv_t["tablename"]}',str(load_time),str(end))
         logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"],end))
-        logger.info("Loaded %s in %6.3f seconds" % (csv_t["tablename"],load_time))
+        logger.info("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"],load_time))
     return total_time
 
 def load_csv_monet(cur):
@@ -187,6 +273,7 @@ def load_csv_monet(cur):
                 continue
             load_time += get_last_exec_time_monet(cur)
         end = timer() - start
+        register_result('monet', str(args.scale), f'CSV_{csv_t["tablename"]}', str(load_time), str(end))
         logger.info("CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], args.scale, end))
         total_time += load_time
         if "scalable" in csv_t and args.scale > 0:
@@ -218,10 +305,11 @@ def run_queries_monet(cur):
             logger.exception(msg)
             continue
         end = timer() - start
-        logger.info("CLIENT: Executed query %s in %6.3f seconds" % (query_id,end))
         query_time = get_last_exec_time_monet(cur)
+        register_result('monet', str(args.scale), f'Q{query_id}', str(query_time), str(end))
+        logger.info("CLIENT: Executed query %s in %6.3f seconds" % (query_id,end))
+        logger.info("SERVER: Executed query %s in %6.3f seconds" % (query_id, query_time))
         total_time += query_time
-        logger.info("Executed query %s in %6.3f seconds" % (query_id, query_time))
         query_id +=1
     logger.info("Executed all queries in %6.3f seconds" % total_time)
 
@@ -262,6 +350,7 @@ def benchmark_monet():
     logger.debug(f'MonetDB: Connected to database {args.database}')
 
     cur = conn.cursor()
+    get_monet_version(cur)
     enable_query_history(cur)
     if args.load:
         create_schema_monet(cur)
@@ -317,6 +406,7 @@ def load_csv_psql(cur):
                 logger.exception(msg)
                 continue
         load_time = timer() - start
+        register_result('psql', str(args.scale), f'CSV_{csv_t["tablename"]}', '', str(load_time))
         total_time += load_time
         if "scalable" in csv_t and args.scale > 0:
             logger.info("Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"],args.scale,load_time))
@@ -348,24 +438,11 @@ def load_shp_psql():
             logger.exception(msg)
         load_time = timer() - start
         total_time += load_time
-        logger.info("Loaded %s in %6.3f seconds" % (csv_t["tablename"],load_time))
+        register_result('psql', str(args.scale), f'SHP_{csv_t["tablename"]}', '', str(load_time))
+        logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"],load_time))
     return total_time
 
 def load_data_psql(cur):
-    #Get PostGIS version
-    try:
-        cur.execute("select PostGIS_Lib_Version();")
-    except psycopg2.DatabaseError as msg:
-        logger.exception(msg)
-        return
-
-    result = cur.fetchone()
-    if result is not None:
-        postgis_version = result[0]
-    else:
-        #Default value, latest version
-        postgis_version = "3.1.2"
-
     logger.debug("Loading data")
 
     total_time = load_csv_psql(cur)
@@ -380,7 +457,7 @@ def run_queries_psql(cur):
     logger.debug("Running queries")
 
     total_time = 0
-    q_id = 1
+    query_id = 1
     for q in geo_queries:
         if not q:
             continue
@@ -392,9 +469,10 @@ def run_queries_psql(cur):
             logger.exception(msg)
             continue
         query_time = timer() - start
+        register_result('psql', str(args.scale), f'Q{query_id}', '', str(query_time))
         total_time += query_time
-        logger.info("Executed query %s in %6.3f seconds" % (q_id, query_time))
-        q_id +=1
+        logger.info("CLIENT: Executed query %s in %6.3f seconds" % (query_id, query_time))
+        query_id +=1
     logger.info("Executed all queries in %6.3f seconds" % total_time)
 
 def export_query_tables_psql(cur):
@@ -429,6 +507,9 @@ def benchmark_psql():
     cur = conn.cursor()
     if args.load:
         create_schema_psql(cur)
+        #TODO Move this, it needs postgis to be installed to work
+        get_postgis_version(cur)
+        get_psql_version(cur)
         load_data_psql(cur)
     if args.query:
         run_queries_psql(cur)
@@ -451,4 +532,6 @@ if __name__ == "__main__":
     elif args.system == 'postgres' or args.system == 'psql'or args.system == 'postgis':
         benchmark_psql()
     else:
-        logger.error('Choose a system to benchmark: monetdb (alias mdb, monet) or postgis (alias psql, postgres)')
+        benchmark_monet()
+        benchmark_psql()
+        write_results_csv()
