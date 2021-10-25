@@ -125,11 +125,40 @@ class DatabaseHandler:
                 return input_file_name
         return output_file_name
 
-    def get_server_query_time(self,cur):
-        return -1
+    # TODO Is this return value okay? Should we do exceptions?
+    @staticmethod
+    def execute_query(cur, q):
+        try:
+            cur.execute(q)
+        except Exception as msg:
+            logger.exception(msg)
+            return 0
+        return 1
 
-    def execute_query(self,cur,q):
-        pass
+    def benchmark(self):
+        conn = self.connect_database()
+        if not conn:
+            logger.error(f'Could not access the database {args.database}')
+            sys.exit()
+        logger.info(f'{self.system.upper()}: Connected to database {args.database}')
+        self.prepare_connection(conn)
+        cur = conn.cursor()
+        for scale in scales:
+            self.cur_scale = scale
+            logger.info(f'Benchmarking scale {self.cur_scale}')
+            self.create_schema(cur)
+            self.get_version(cur)
+            self.load_data(cur)
+            if args.query:
+                self.run_queries(cur)
+            if args.export:
+                self.export_query_tables(cur)
+            if args.drop:
+                self.drop_schema(cur)
+            else:
+                logger.info("Dropping schemas is turned off, so multiple scale factors are not allowed\nWrapping up.")
+                break
+        conn.close()
 
     def connect_database(self):
         pass
@@ -150,17 +179,11 @@ class DatabaseHandler:
     def get_version(self,cur):
         pass
 
-    def load_shp(self,cur):
-        pass
-
-    def add_timestamp(self, cur, tablename, attribute):
-        pass
-
-    def add_geom(self, cur, tablename, attribute):
-        pass
-
-    def copy_into_query(self, tablename, columns, filename):
-        pass
+    def load_data(self, cur):
+        logger.debug("Loading data")
+        total_time = self.load_csv(cur)
+        total_time += self.load_shp(cur)
+        logger.info("All loads in %6.3f seconds" % total_time)
 
     def load_csv(self,cur):
         total_time = 0
@@ -189,13 +212,25 @@ class DatabaseHandler:
             self.register_result(self.system, self.cur_scale, f'CSV_{csv_t["tablename"]}', server_time, client_time)
             total_time += client_time
             if "scalable" in csv_t and self.cur_scale > 0:
-                logger.info("CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], self.cur_scale, client_time))
+                logger.debug("CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], self.cur_scale, client_time))
             else:
-                logger.info("CLIENT: Loaded %s in %6.3f seconds" % (filename, client_time))
+                logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (filename, client_time))
         return total_time
 
-    def load_data(self, cur):
-        logger.debug("Loading data")
+    def get_server_query_time(self,cur):
+        return -1
+
+    def copy_into_query(self, tablename, columns, filename):
+        pass
+
+    def add_geom(self, cur, tablename, attribute):
+        pass
+
+    def add_timestamp(self, cur, tablename, attribute):
+        pass
+
+    def load_shp(self,cur):
+        pass
 
     def run_queries(self, cur):
         geo_queries = self.open_and_split_sql_file(f"{self.system}_queries.sql")
@@ -215,11 +250,11 @@ class DatabaseHandler:
             total_time += client_time
 
             self.register_result(self.system, self.cur_scale, f'Q{query_id}', server_time, client_time)
-            logger.info("CLIENT: Executed query %s in %6.3f seconds" % (query_id, client_time))
+            logger.debug("CLIENT: Executed query %s in %6.3f seconds" % (query_id, client_time))
             if server_time > 0:
-                logger.info("SERVER: Executed query %s in %6.3f seconds" % (query_id, server_time))
+                logger.debug("SERVER: Executed query %s in %6.3f seconds" % (query_id, server_time))
             query_id += 1
-        logger.info("CLIENT: Executed all queries in %6.3f seconds" % total_time)
+        logger.info("Executed all queries in %6.3f seconds" % total_time)
 
     def export_query_tables(self,cur):
         geo_export = self.open_and_split_sql_file(f"{self.system}_export.sql")
@@ -239,32 +274,17 @@ class DatabaseHandler:
             if not self.execute_query(cur,q):
                 continue
 
+    # TODO What should we do if the queries fail?
     def drop_schema(self,cur):
         logger.debug("Dropping schema")
-
-    def benchmark(self):
-        conn = self.connect_database()
-        if not conn:
-            logger.error(f'Could not access the database {args.database}')
-            sys.exit()
-        logger.debug(f'{self.system}: Connected to database {args.database}')
-        self.prepare_connection(conn)
-        cur = conn.cursor()
-        for scale in scales:
-            self.cur_scale = scale
-            self.create_schema(cur)
-            self.get_version(cur)
-            self.load_data(cur)
-            if args.query:
-                self.run_queries(cur)
-            if args.export:
-                self.export_query_tables(cur)
-            if args.drop:
-                self.drop_schema(cur)
-            else:
-                logger.info("Dropping schemas is turned off, so multiple scale factors are not allowed\nWrapping up.")
-                break
-        conn.close()
+        if self.system == "monet":
+            if not self.execute_query(cur, "SET SCHEMA = sys;"):
+                return
+        else:
+            if not self.execute_query(cur, "SET SCHEMA 'public';"):
+                return
+        if not self.execute_query(cur, "DROP SCHEMA bench_geo cascade;"):
+            return
 
 class MonetHandler(DatabaseHandler):
     def __init__(self):
@@ -272,7 +292,11 @@ class MonetHandler(DatabaseHandler):
         self.monet_version = None
         self.monet_revision = None
 
-    def get_monet_version(self,cur):
+    def connect_database(self):
+        conn = pymonetdb.connect(args.database, autocommit=True)
+        return conn
+
+    def get_version(self, cur):
         if not self.execute_query(cur,"select name, value from sys.env() where name in ('monet_version','revision');"):
             return "0"
 
@@ -282,9 +306,6 @@ class MonetHandler(DatabaseHandler):
                 self.monet_version = r[1]
             elif r[0] == 'revision':
                 self.monet_revision = r[1]
-
-    def get_version(self, cur):
-        self.get_monet_version(cur)
 
     def get_server_query_time(self,cur):
         if not self.execute_query(cur,f"select extract(epoch from t) "
@@ -297,14 +318,15 @@ class MonetHandler(DatabaseHandler):
         else:
             return -1
 
-    # TODO: Is this return value okay? Should it be an exception?
-    def execute_query(self, cur, q):
-        try:
-            cur.execute(q)
-        except pymonetdb.DatabaseError as msg:
-            logger.exception(msg)
-            return 0
-        return 1
+    def copy_into_query(self, tablename, columns, filename):
+        return f'COPY OFFSET 2 INTO {tablename} ({columns}) FROM \'{filename}\' \
+        ({columns}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
+
+    def add_geom(self, cur, tablename, attribute):
+        return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
+
+    def add_timestamp(self, cur, tablename, attribute):
+        return self.execute_query(cur,f'UPDATE {tablename} SET t = epoch(cast({attribute} as int));')
 
     def load_shp(self, cur):
         total_time = 0
@@ -321,48 +343,26 @@ class MonetHandler(DatabaseHandler):
             server_time = self.get_server_query_time(cur)
             total_time += client_time
             self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', server_time, client_time)
-            logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
-            logger.info("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
+            logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
+            logger.debug("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
         return total_time
-
-    def add_timestamp(self, cur, tablename, attribute):
-        return self.execute_query(cur,f'UPDATE {tablename} SET t = epoch(cast({attribute} as int));')
-
-    def add_geom(self, cur, tablename, attribute):
-        return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
-
-    def copy_into_query(self, tablename, columns, filename):
-        return f'COPY OFFSET 2 INTO {tablename} ({columns}) FROM \'{filename}\' \
-        ({columns}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
-
-    def load_csv(self, cur):
-        return super().load_csv(cur)
-
-    def load_data(self, cur):
-        super().load_data(cur)
-        #TODO: Move this?
-        self.enable_query_history(cur)
-        total_time = self.load_csv(cur)
-        total_time += self.load_shp(cur)
-        logger.info("All loads in %6.3f seconds" % total_time)
-
-    def connect_database(self):
-        conn = pymonetdb.connect(args.database, autocommit=True)
-        return conn
-
-    def enable_query_history(self,cur):
-        logger.debug("Enabling query history")
-        self.execute_query(cur,"call sys.querylog_enable();")
-
-    def drop_schema(self,cur):
-        cur.execute("SET SCHEMA = sys;")
-        cur.execute("DROP SCHEMA bench_geo cascade;")
 
 class PostgresHandler(DatabaseHandler):
     def __init__(self):
         super().__init__("psql")
         self.postgis_version = None
         self.psql_version = None
+
+    def connect_database(self):
+        conn = psycopg2.connect(f"dbname={args.database}")
+        return conn
+
+    def prepare_connection(self,conn):
+        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+
+    def get_version(self, cur):
+        self.get_postgis_version(cur)
+        self.get_psql_version(cur)
 
     def get_postgis_version(self,cur):
         logger.debug("Getting postgis version")
@@ -386,38 +386,18 @@ class PostgresHandler(DatabaseHandler):
         else:
             self.psql_version = "0"
 
-    def get_version(self, cur):
-        self.get_postgis_version(cur)
-        self.get_psql_version(cur)
-
-    #TODO: Is this return value okay?
-    def execute_query(self,cur,q):
-        try:
-            cur.execute(q)
-        except psycopg2.DatabaseError as msg:
-            logger.exception(msg)
-            return 0
-        return 1
-
+    # We have not implemented server-side timing retrieval for Postgres yet, return placeholder value
     def get_server_query_time(self,cur):
         return -1
 
-    def connect_database(self):
-        conn = psycopg2.connect(f"dbname={args.database}")
-        return conn
+    def copy_into_query(self, tablename, columns, filename):
+        return f'COPY {tablename} ({columns}) FROM \'{filename}\' delimiter \',\' csv HEADER;'
 
-    def prepare_connection(self,conn):
-        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+    def add_geom(self, cur, tablename, attribute):
+        return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
 
-    # PostGIS extension can only be in one schema at a time.
-    # We need it in the bench_geo schema to add geometry support
-    # But shapefiles can only be loaded if the extension is in the public (default) schema
-    # TODO: Check if this is really necessary
-    def move_postgis_extension(self, cur, schema):
-        cur.execute("UPDATE pg_extension SET extrelocatable = TRUE WHERE extname = 'postgis';")
-        cur.execute(f"ALTER EXTENSION postgis SET SCHEMA {schema};")
-        cur.execute(f"ALTER EXTENSION postgis UPDATE TO \"{self.postgis_version}next\";")
-        cur.execute(f"ALTER EXTENSION postgis UPDATE TO \"{self.postgis_version}\";")
+    def add_timestamp(self, cur, tablename, attribute):
+        return self.execute_query(cur,f'UPDATE {tablename} SET t = to_timestamp({attribute});')
 
     def load_shp(self, cur):
         total_time = 0
@@ -433,33 +413,8 @@ class PostgresHandler(DatabaseHandler):
             client_time = timer() - start
             total_time += client_time
             self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, client_time)
-            logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
+            logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
         return total_time
-
-    def add_timestamp(self, cur, tablename, attribute):
-        return self.execute_query(cur,f'UPDATE {tablename} SET t = to_timestamp({attribute});')
-
-    def add_geom(self, cur, tablename, attribute):
-        return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
-
-    def copy_into_query(self, tablename, columns, filename):
-        return f'COPY {tablename} ({columns}) FROM \'{filename}\' delimiter \',\' csv HEADER;'
-
-    def load_csv(self, cur):
-        return super().load_csv(cur)
-
-    def load_data(self, cur):
-        super().load_data(cur)
-        total_time = self.load_csv(cur)
-        self.move_postgis_extension(cur, "public")
-        total_time += self.load_shp(cur)
-        self.move_postgis_extension(cur, "bench_geo")
-        logger.info("CLIENT: All loads in %6.3f seconds" % total_time)
-
-    def drop_schema(self,cur):
-        super().drop_schema(cur)
-        cur.execute("SET SCHEMA 'public';")
-        cur.execute("DROP SCHEMA bench_geo cascade;")
 
 def write_results_csv(timestamp):
     monet_array = results['monet']
