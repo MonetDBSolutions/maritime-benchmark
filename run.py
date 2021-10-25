@@ -10,8 +10,6 @@ import logging
 import datetime
 import csv
 
-#TODO: Version numbers in txt metadata file, add MDB commit hash
-#TODO: Truncate client-side execution times
 #TODO: Pass number of records to COPY INTO commands
 #TODO: Use the MinTimeLogger from extras (psql)
 
@@ -29,24 +27,22 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required = True, default=None)
 parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
 parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
-parser.add_argument('--scale', type=float, help='Benchmark scale factor (currently only values < 1 allowed)', default=0)
+parser.add_argument('--scale', type=float, nargs='+', help='Benchmark scale factor(s) (only values < 1 allowed)', default=0)
+
 
 #Switch (bool) arguments
 parser.add_argument('--debug', help='Turn on debugging log', dest='debug', action='store_true')
 parser.add_argument('--no-debug', help='Turn off debugging log (default is off)', dest='debug', action='store_false')
 parser.set_defaults(debug=False)
-parser.add_argument('--load', help='Turn on loading the data', dest='load', action='store_true')
-parser.add_argument('--no-load', help='Turn off loading the data (default is on)', dest='load', action='store_false')
-parser.set_defaults(load=True)
 parser.add_argument('--query', help='Turn on querying the data', dest='query', action='store_true')
 parser.add_argument('--no-query', help='Turn off querying the data (default is on)', dest='query', action='store_false')
 parser.set_defaults(query=True)
-parser.add_argument('--drop', help='Turn on dropping the data after execution', dest='drop', action='store_true')
-parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop', action='store_false')
-parser.set_defaults(drop=True)
 parser.add_argument('--export', help='Turn on exporting query tables after execution', dest='export', action='store_true')
 parser.add_argument('--no-export', help='Turn off exporting query tables after execution (default is off)', dest='export', action='store_false')
 parser.set_defaults(export=False)
+parser.add_argument('--drop', help='Turn on dropping the data after execution', dest='drop', action='store_true')
+parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop', action='store_false')
+parser.set_defaults(drop=True)
 
 load_tables = {
   "csv_tables":
@@ -82,6 +78,17 @@ class DatabaseHandler:
 
     def __init__(self, system):
         self.system = system
+        self.cur_scale = None
+
+    @staticmethod
+    def register_result(system, scale, operation, server_time, client_time):
+        result = {
+            "scale": scale,
+            "operation": operation,
+            "server_time": server_time,
+            "client_time": client_time
+        }
+        results[system].append(result)
 
     # Open SQL file, read content and split strings on semicolon
     @staticmethod
@@ -119,7 +126,7 @@ class DatabaseHandler:
         return output_file_name
 
     def get_server_query_time(self,cur):
-        return 0
+        return -1
 
     def execute_query(self,cur,q):
         pass
@@ -158,8 +165,8 @@ class DatabaseHandler:
     def load_csv(self,cur):
         total_time = 0
         for csv_t in load_tables["csv_tables"]:
-            if "scalable" in csv_t and args.scale != 0:
-                filename = self.scale_csv(csv_t["filename"], args.scale)
+            if "scalable" in csv_t and self.cur_scale != 0:
+                filename = self.scale_csv(csv_t["filename"], self.cur_scale)
             else:
                 filename = f'{data_dir}/{csv_t["filename"]}.csv'
             query = self.copy_into_query(csv_t["tablename"],csv_t["columns"],filename)
@@ -179,10 +186,10 @@ class DatabaseHandler:
                 server_time += self.get_server_query_time(cur)
 
             client_time = timer() - start
-            register_result(self.system, str(args.scale), f'CSV_{csv_t["tablename"]}', str(server_time), str(client_time))
+            self.register_result(self.system, self.cur_scale, f'CSV_{csv_t["tablename"]}', server_time, client_time)
             total_time += client_time
-            if "scalable" in csv_t and args.scale > 0:
-                logger.info("CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], args.scale, client_time))
+            if "scalable" in csv_t and self.cur_scale > 0:
+                logger.info("CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], self.cur_scale, client_time))
             else:
                 logger.info("CLIENT: Loaded %s in %6.3f seconds" % (filename, client_time))
         return total_time
@@ -207,9 +214,9 @@ class DatabaseHandler:
             server_time = self.get_server_query_time(cur)
             total_time += client_time
 
-            register_result(self.system, str(args.scale), f'Q{query_id}', str(server_time), str(client_time))
+            self.register_result(self.system, self.cur_scale, f'Q{query_id}', server_time, client_time)
             logger.info("CLIENT: Executed query %s in %6.3f seconds" % (query_id, client_time))
-            if server_time:
+            if server_time > 0:
                 logger.info("SERVER: Executed query %s in %6.3f seconds" % (query_id, server_time))
             query_id += 1
         logger.info("CLIENT: Executed all queries in %6.3f seconds" % total_time)
@@ -222,7 +229,12 @@ class DatabaseHandler:
             if not q:
                 continue
             # Replace placeholder %OUT% string with output directory
-            q = q.replace("%OUT%", os.getcwd() + "/out")
+            q = q.replace("%OUT%", f"{os.getcwd()}/out/{self.system}")
+            # If there is a Scale Factor, replace placehold %SF% with current scale factor
+            if self.cur_scale > 0:
+                q = q.replace("%SF%", f"_{self.cur_scale}")
+            else:
+                q = q.replace("%SF%", "")
             logger.debug(f"Executing export query '{q}'")
             if not self.execute_query(cur,q):
                 continue
@@ -238,33 +250,41 @@ class DatabaseHandler:
         logger.debug(f'{self.system}: Connected to database {args.database}')
         self.prepare_connection(conn)
         cur = conn.cursor()
-        if args.load:
+        for scale in scales:
+            self.cur_scale = scale
             self.create_schema(cur)
-            #TODO Move this, BUT -> it needs postgis to be installed to work (after create extension command)
             self.get_version(cur)
             self.load_data(cur)
-        if args.query:
-            self.run_queries(cur)
-        if args.export:
-            self.export_query_tables(cur)
-        if args.drop:
-            self.drop_schema(cur)
+            if args.query:
+                self.run_queries(cur)
+            if args.export:
+                self.export_query_tables(cur)
+            if args.drop:
+                self.drop_schema(cur)
+            else:
+                logger.info("Dropping schemas is turned off, so multiple scale factors are not allowed\nWrapping up.")
+                break
         conn.close()
 
 class MonetHandler(DatabaseHandler):
     def __init__(self):
         super().__init__("monet")
+        self.monet_version = None
+        self.monet_revision = None
 
     def get_monet_version(self,cur):
-        global monet_version
-        if not self.execute_query(cur,"select value from sys.env() where name = 'monet_version';"):
+        if not self.execute_query(cur,"select name, value from sys.env() where name in ('monet_version','revision');"):
             return "0"
 
-        result = cur.fetchone()
-        if result is not None:
-            monet_version = result[0]
-        else:
-            monet_version = "0"
+        result = cur.fetchall()
+        for r in result:
+            if r[0] == 'monet_version':
+                self.monet_version = r[1]
+            elif r[0] == 'revision':
+                self.monet_revision = r[1]
+
+    def get_version(self, cur):
+        self.get_monet_version(cur)
 
     def get_server_query_time(self,cur):
         if not self.execute_query(cur,f"select extract(epoch from t) "
@@ -300,7 +320,7 @@ class MonetHandler(DatabaseHandler):
             client_time = timer() - start
             server_time = self.get_server_query_time(cur)
             total_time += client_time
-            register_result('monet', str(args.scale), f'SHP_{csv_t["tablename"]}', str(server_time), str(client_time))
+            self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', server_time, client_time)
             logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
             logger.info("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
         return total_time
@@ -339,35 +359,32 @@ class MonetHandler(DatabaseHandler):
         cur.execute("DROP SCHEMA bench_geo cascade;")
 
 class PostgresHandler(DatabaseHandler):
-    postgis_version = ""
-    psql_version = ""
-
     def __init__(self):
         super().__init__("psql")
+        self.postgis_version = None
+        self.psql_version = None
 
     def get_postgis_version(self,cur):
-        global postgis_version
         logger.debug("Getting postgis version")
         if not self.execute_query(cur,"select PostGIS_Lib_Version();"):
             return "0"
 
         result = cur.fetchone()
         if result is not None:
-            postgis_version = result[0]
+            self.postgis_version = result[0]
         else:
-            postgis_version = "0"
+            self.postgis_version = "0"
 
     def get_psql_version(self,cur):
-        global psql_version
         logger.debug("Getting psql version")
         if not self.execute_query(cur,"SHOW server_version;"):
             return "0"
 
         result = cur.fetchone()
         if result is not None:
-            psql_version = result[0]
+            self.psql_version = result[0]
         else:
-            psql_version = "0"
+            self.psql_version = "0"
 
     def get_version(self, cur):
         self.get_postgis_version(cur)
@@ -381,6 +398,9 @@ class PostgresHandler(DatabaseHandler):
             logger.exception(msg)
             return 0
         return 1
+
+    def get_server_query_time(self,cur):
+        return -1
 
     def connect_database(self):
         conn = psycopg2.connect(f"dbname={args.database}")
@@ -396,8 +416,8 @@ class PostgresHandler(DatabaseHandler):
     def move_postgis_extension(self, cur, schema):
         cur.execute("UPDATE pg_extension SET extrelocatable = TRUE WHERE extname = 'postgis';")
         cur.execute(f"ALTER EXTENSION postgis SET SCHEMA {schema};")
-        cur.execute(f"ALTER EXTENSION postgis UPDATE TO \"{postgis_version}next\";")
-        cur.execute(f"ALTER EXTENSION postgis UPDATE TO \"{postgis_version}\";")
+        cur.execute(f"ALTER EXTENSION postgis UPDATE TO \"{self.postgis_version}next\";")
+        cur.execute(f"ALTER EXTENSION postgis UPDATE TO \"{self.postgis_version}\";")
 
     def load_shp(self, cur):
         total_time = 0
@@ -410,10 +430,10 @@ class PostgresHandler(DatabaseHandler):
                 subprocess.check_output(query, shell=True, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as msg:
                 logger.exception(msg)
-            load_time = timer() - start
-            total_time += load_time
-            register_result('psql', str(args.scale), f'SHP_{csv_t["tablename"]}', '', str(load_time))
-            logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], load_time))
+            client_time = timer() - start
+            total_time += client_time
+            self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, client_time)
+            logger.info("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
         return total_time
 
     def add_timestamp(self, cur, tablename, attribute):
@@ -441,37 +461,38 @@ class PostgresHandler(DatabaseHandler):
         cur.execute("SET SCHEMA 'public';")
         cur.execute("DROP SCHEMA bench_geo cascade;")
 
-def register_result(system,scale,operation,server_time,client_time):
-    if server_time == "0":
-        server_time = ""
-    result = {
-        "scale": scale,
-        "operation": operation,
-        "server_time": server_time,
-        "client_time": client_time
-    }
-    results[system].append(result)
-
-def write_results_csv():
-    now = datetime.datetime.now()
+def write_results_csv(timestamp):
     monet_array = results['monet']
     psql_array = results['psql']
-    with open(f'{os.getcwd()}/results/result_{now.strftime("%d")}-{now.strftime("%m")}_'
-              f'{now.strftime("%H")}:{now.strftime("%M")}.csv', 'w', encoding='UTF8') as f:
+    with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
+              f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv', 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
         writer.writerow(results_header)
-        #TODO: Is this okay?
         line_count = len(monet_array)
         for i in range(line_count):
             monet_result = monet_array[i]
             psql_result = psql_array[i]
+            #When server_time is not available, leave the column as an empty string
+            if monet_result["server_time"] < 0:
+                monet_result["server_time"] = ""
+            elif psql_result["server_time"] < 0:
+                psql_result["server_time"] = ""
             writer.writerow([f'{monet_result["scale"]}',f'{monet_result["operation"]}',
-                            f'{monet_result["server_time"]}',f'{monet_result["client_time"]}',
-                            f'{psql_result["server_time"]}',f'{psql_result["client_time"]}'])
+                            f'{monet_result["server_time"]}',f'{round(monet_result["client_time"],3)}',
+                            f'{psql_result["server_time"]}',f'{round(psql_result["client_time"],3)}'])
 
+def write_results_metadata(timestamp,monet_handler,psql_handler):
+    with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
+              f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
+        f.write(f"MonetDB version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
+        f.write(f"Postgres version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}")
+
+def write_results(monet_handler,psql_handler):
+    now = datetime.datetime.now()
+    write_results_csv(now)
+    write_results_metadata(now,monet_handler,psql_handler)
 
 def configure_logger():
-    # TODO Add option to log to file
     if args.debug:
         logger.setLevel(logging.DEBUG)
     else:
@@ -484,6 +505,7 @@ def configure_logger():
 if __name__ == "__main__":
     args = parser.parse_args()
     data_dir = args.data
+    scales = args.scale
 
     #Configure logger
     logger = logging.getLogger(__name__)
@@ -494,6 +516,8 @@ if __name__ == "__main__":
     elif args.system == 'postgres' or args.system == 'psql'or args.system == 'postgis':
         PostgresHandler().benchmark()
     else:
-        MonetHandler().benchmark()
-        PostgresHandler().benchmark()
-        write_results_csv()
+        m_handler = MonetHandler()
+        p_handler = PostgresHandler()
+        m_handler.benchmark()
+        p_handler.benchmark()
+        write_results(m_handler,p_handler)
