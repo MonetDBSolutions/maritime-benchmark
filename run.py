@@ -5,17 +5,16 @@ import sys
 import os
 from timeit import default_timer as timer
 import psycopg2
-import subprocess
+from subprocess import run, CalledProcessError, check_output, STDOUT, DEVNULL
 import logging
 import datetime
 import csv
+from time import sleep
 
-#TODO: Pass number of records to COPY INTO commands
+#TODO: Improve the return values of functions like execute_query, get_version and get_server_query_time
 #TODO: Use the MinTimeLogger from extras (psql)
-
 #TODO: Import download data script into here?
 #TODO: Read from CSV header; Create table from columns of CSV
-#TODO: Integrate the server startup (for Monet and Postgres)
 #TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
 
 parser = argparse.ArgumentParser(
@@ -28,7 +27,8 @@ parser.add_argument('--data', type=str, help='Absolute path to the dataset direc
 parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
 parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
 parser.add_argument('--scale', type=float, nargs='+', help='Benchmark scale factor(s) (only values < 1 allowed)', default=0)
-
+parser.add_argument('--dbfarm_monet', type=str, help='MonetDB database farm to be used in starting the server from the script', default=None)
+parser.add_argument('--dbfarm_psql', type=str, help='PostgreSQL database directory to be used in starting the server from the script', default=None)
 
 #Switch (bool) arguments
 parser.add_argument('--debug', help='Turn on debugging log', dest='debug', action='store_true')
@@ -79,6 +79,8 @@ class DatabaseHandler:
     def __init__(self, system):
         self.system = system
         self.cur_scale = None
+        #Used to store record number for Scale Factors (used in performance results metadata)
+        self.record_number = []
 
     @staticmethod
     def register_result(system, scale, operation, server_time, client_time):
@@ -103,20 +105,23 @@ class DatabaseHandler:
 
     # Create a new CSV file with a subset of data from an input CSV, given a scale factor (only < 1 SF allowed)
     # If the file already exists, use it. We currently don't delete the file after execution
-    @staticmethod
-    def scale_csv(input_name, scale):
+    def scale_csv(self, input_name, scale):
         if scale > 1:
             logger.warning("Scale factor must be less than 1, using original csv (SF 1)")
             return f'{data_dir}/{input_name}.csv'
         output_file_name = f'{data_dir}/{input_name}_SF_{scale}.csv'
         if os.path.isfile(output_file_name):
             logger.debug(f"Found already existing csv {output_file_name}")
+            #Register the number of records in Scale Factor
+            with open(output_file_name) as f:
+                self.record_number.append(sum(1 for l in f))
             return output_file_name
         input_file_name = f'{data_dir}/{input_name}.csv'
         with open(input_file_name, 'r') as input_file, open(output_file_name, 'w+') as output_file:
             try:
                 input_lines = input_file.readlines()
                 records_scaled = int(len(input_lines) * scale)
+                self.record_number.append(records_scaled)
                 output_file.writelines(input_lines[0:records_scaled])
                 logger.debug(f"Number of records in scaled dataset '{input_name}': {records_scaled}")
             except IOError as msg:
@@ -155,7 +160,7 @@ class DatabaseHandler:
                 self.export_query_tables(cur)
             if args.drop:
                 self.drop_schema(cur)
-            else:
+            elif len(scales) > 1:
                 logger.info("Dropping schemas is turned off, so multiple scale factors are not allowed\nWrapping up.")
                 break
         conn.close()
@@ -192,10 +197,8 @@ class DatabaseHandler:
                 filename = self.scale_csv(csv_t["filename"], self.cur_scale)
             else:
                 filename = f'{data_dir}/{csv_t["filename"]}.csv'
-            query = self.copy_into_query(csv_t["tablename"],csv_t["columns"],filename)
-            logger.debug(f"Executing query '{query}'")
             start = timer()
-            if not self.execute_query(cur,query):
+            if not self.copy_into(cur,csv_t["tablename"],csv_t["columns"],filename):
                 continue
             server_time = self.get_server_query_time(cur)
 
@@ -220,7 +223,7 @@ class DatabaseHandler:
     def get_server_query_time(self,cur):
         return -1
 
-    def copy_into_query(self, tablename, columns, filename):
+    def copy_into(self, cur, tablename, columns, filename):
         pass
 
     def add_geom(self, cur, tablename, attribute):
@@ -244,6 +247,7 @@ class DatabaseHandler:
             logger.debug(f"Executing query '{q}'")
             start = timer()
             if not self.execute_query(cur,q):
+                self.register_result(self.system, self.cur_scale, f'Q{query_id}', -1, -1)
                 continue
             client_time = timer() - start
             server_time = self.get_server_query_time(cur)
@@ -255,6 +259,7 @@ class DatabaseHandler:
                 logger.debug("SERVER: Executed query %s in %6.3f seconds" % (query_id, server_time))
             query_id += 1
         logger.info("Executed all queries in %6.3f seconds" % total_time)
+        self.register_result(self.system, self.cur_scale, "All queries", -1, total_time)
 
     def export_query_tables(self,cur):
         geo_export = self.open_and_split_sql_file(f"{self.system}_export.sql")
@@ -299,7 +304,6 @@ class MonetHandler(DatabaseHandler):
     def get_version(self, cur):
         if not self.execute_query(cur,"select name, value from sys.env() where name in ('monet_version','revision');"):
             return "0"
-
         result = cur.fetchall()
         for r in result:
             if r[0] == 'monet_version':
@@ -318,9 +322,14 @@ class MonetHandler(DatabaseHandler):
         else:
             return -1
 
-    def copy_into_query(self, tablename, columns, filename):
-        return f'COPY OFFSET 2 INTO {tablename} ({columns}) FROM \'{filename}\' \
+    def copy_into(self, cur, tablename, columns, filename):
+        #TODO: Is it worth it to count the number of lines for the COPY INTO to be faster? -> Time it
+        with open(filename) as f:
+            record_number = sum(1 for l in f)
+        query = f'COPY {record_number} OFFSET 2 RECORDS INTO {tablename} ({columns}) FROM \'{filename}\' \
         ({columns}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
+        logger.debug(f"Executing query '{query}'")
+        return self.execute_query(cur,query)
 
     def add_geom(self, cur, tablename, attribute):
         return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
@@ -390,8 +399,10 @@ class PostgresHandler(DatabaseHandler):
     def get_server_query_time(self,cur):
         return -1
 
-    def copy_into_query(self, tablename, columns, filename):
-        return f'COPY {tablename} ({columns}) FROM \'{filename}\' delimiter \',\' csv HEADER;'
+    def copy_into(self, cur, tablename, columns, filename):
+        query = f'COPY {tablename} ({columns}) FROM \'{filename}\' delimiter \',\' csv HEADER;'
+        logger.debug(f"Executing query '{query}'")
+        return self.execute_query(cur, query)
 
     def add_geom(self, cur, tablename, attribute):
         return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
@@ -407,14 +418,267 @@ class PostgresHandler(DatabaseHandler):
             logger.debug(f"Executing command '{query}'")
             start = timer()
             try:
-                subprocess.check_output(query, shell=True, stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as msg:
+                check_output(query, shell=True, stderr=STDOUT)
+            except CalledProcessError as msg:
                 logger.exception(msg)
             client_time = timer() - start
             total_time += client_time
             self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, client_time)
             logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
         return total_time
+
+class MonetServer:
+    def __init__(self,dbfarm,dbname):
+        self.dbfarm = dbfarm
+        self.dbname = dbname
+        self.start_server()
+
+    def start_server(self):
+        if not self.farm_is_running(self.dbfarm):
+            if not self.farm_up(self.dbfarm):
+                self.destroy_farm(self.dbfarm)
+        if not self.server_up(self.dbname):
+            self.stop_server(args.drop)
+        logger.info(f'MonetDB: Started database {self.dbname} on {self.dbfarm}')
+
+    def stop_server(self, destroy):
+        self.server_down(self.dbname)
+        if destroy:
+            self.destroy_farm(self.dbfarm)
+        else:
+            self.farm_down(self.dbfarm)
+
+    def farm_up(self, dbfarm='mydbfarm', prefix='') -> bool:
+        if not os.path.exists(dbfarm):
+            cmd = [os.path.join(prefix, 'monetdbd'), 'create', str(dbfarm)]
+            try:
+                run(cmd, check=True)
+                logger.info('created dbfarm %s' % dbfarm)
+            except CalledProcessError as e:
+                logger.error(e)
+                return False
+            except:
+                logger.error(sys.exc_info())
+                return False
+
+        cmd = [os.path.join(prefix, 'monetdbd'), 'start', str(dbfarm)]
+        try:
+            run(cmd, check=True)
+            logger.info('started dbfarm %s' % dbfarm)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+
+        return True
+
+    def farm_down(self, dbfarm, prefix='') -> bool:
+        cmd = [os.path.join(prefix, 'monetdbd'), 'stop', str(dbfarm)]
+        try:
+            run(cmd, check=True)
+            logger.info('stopped dbfarm %s' % dbfarm)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+        return True
+
+    def farm_is_running(self, dbfarm) -> bool:
+        if os.path.exists(dbfarm):
+            cmd = "ps aux | grep monetdbd"
+            try:
+                res = check_output(cmd,shell=True).decode()
+                return 'monetdbd' in res and dbfarm in res
+            except CalledProcessError as e:
+                logger.info('monetdbd is not running')
+                return False
+            except:
+                logger.error(sys.exc_info())
+                return False
+        else:
+            return False
+
+    def destroy_farm(self, dbfarm):
+        if os.path.exists(dbfarm):
+            is_down = True
+            if self.farm_is_running(dbfarm):
+                is_down = self.farm_down(dbfarm)
+            if is_down:
+                cmd = ['rm', '-rf', str(dbfarm)]
+                try:
+                    run(cmd, check=True)
+                    logger.info('succesfully removed dbfarm %s' % dbfarm)
+                except CalledProcessError as e:
+                    logger.error(e)
+                except:
+                    logger.error(sys.exc_info())
+            else:
+                logger.info('could not stop dbfram %s' % dbfarm)
+        else:
+            logger.error('dbfarm %s does NOT exists' % dbfarm)
+
+    def server_up(self, dbname='marine', prefix='') -> bool:
+        cmd = [os.path.join(prefix, 'monetdb'), '-q', 'create', str(dbname)]
+        try:
+            run(cmd, check=True)
+            logger.info('created database %s' % dbname)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+
+        sleep(2)
+
+        cmd = [os.path.join(prefix, 'monetdb'), '-q', 'release', str(dbname)]
+        try:
+            run(cmd, check=True)
+            logger.info('released database %s' % dbname)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+        return True
+
+    def server_down(self, dbname='marine', prefix='') -> bool:
+        cmd = [os.path.join(prefix, 'monetdb'), '-q', 'stop', str(dbname)]
+        try:
+            run(cmd, check=True)
+            logger.info('stopped database %s' % dbname)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+        return True
+
+class PostgresServer:
+    def __init__(self,dbfarm,dbname):
+        self.dbfarm = dbfarm
+        self.dbname = dbname
+        self.start_server()
+
+    def start_server(self):
+        if not self.farm_is_running(self.dbfarm):
+            if not self.farm_up(self.dbfarm):
+                self.destroy_farm(self.dbfarm)
+        if not self.db_create(self.dbname):
+            self.stop_server(args.drop)
+        logger.info(f'POSTGRES: Started database {self.dbname} on {self.dbfarm}')
+
+    def stop_server(self, destroy):
+        if destroy:
+            self.db_destroy(self.dbname)
+            self.destroy_farm(self.dbfarm)
+        else:
+            self.farm_down(self.dbfarm)
+
+    def farm_up(self, dbfarm='mydbfarm', prefix='') -> bool:
+        if not os.path.exists(dbfarm):
+            cmd = [os.path.join(prefix, 'initdb'), '-D', str(dbfarm)]
+            try:
+                check_output(cmd,stderr=STDOUT)
+                logger.info('created dbfarm %s' % dbfarm)
+            except CalledProcessError as e:
+                logger.error(e)
+                return False
+            except:
+                logger.error(sys.exc_info())
+                return False
+
+        cmd = [os.path.join(prefix, 'pg_ctl'), '-D', str(dbfarm), '-l', f'{dbfarm}/logfile', 'start']
+        try:
+            check_output(cmd)
+            logger.info('started dbfarm %s' % dbfarm)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+
+        return True
+
+    def farm_down(self, dbfarm, prefix='') -> bool:
+        cmd = [os.path.join(prefix, 'pg_ctl'), '-D', str(dbfarm), '-l', f'{dbfarm}/logfile', 'stop']
+        try:
+            check_output(cmd)
+            logger.info('stopped dbfarm %s' % dbfarm)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+        return True
+
+    def farm_is_running(self, dbfarm) -> bool:
+        if os.path.exists(dbfarm):
+            cmd = "ps aux | grep postgres"
+            try:
+                res = check_output(cmd,shell=True).decode()
+                return 'postgres' in res and dbfarm in res
+            except CalledProcessError as e:
+                logger.info('postgres is not running')
+                return False
+            except:
+                logger.error(sys.exc_info())
+                return False
+        else:
+            return False
+
+    def destroy_farm(self, dbfarm):
+        if os.path.exists(dbfarm):
+            is_down = True
+            if self.farm_is_running(dbfarm):
+                is_down = self.farm_down(dbfarm)
+            if is_down:
+                cmd = ['rm', '-rf', str(dbfarm)]
+                try:
+                    run(cmd, check=True)
+                    logger.info('succesfully removed dbfarm %s' % dbfarm)
+                except CalledProcessError as e:
+                    logger.error(e)
+                except:
+                    logger.error(sys.exc_info())
+            else:
+                logger.info('could not stop dbfram %s' % dbfarm)
+        else:
+            logger.error('dbfarm %s does NOT exists' % dbfarm)
+
+    def db_create(self, dbname='marine', prefix='') -> bool:
+        cmd = [os.path.join(prefix, 'createdb'), str(dbname)]
+        try:
+            run(cmd, check=True)
+            logger.info('created database %s' % dbname)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+        return True
+
+    def db_destroy(self, dbname='marine', prefix='') -> bool:
+        cmd = [os.path.join(prefix, 'dropdb'), str(dbname)]
+        try:
+            run(cmd, check=True)
+            logger.info('destroyed database %s' % dbname)
+        except CalledProcessError as e:
+            logger.error(e)
+            return False
+        except:
+            logger.error(sys.exc_info())
+            return False
+        return True
 
 def write_results_csv(timestamp):
     monet_array = results['monet']
@@ -440,7 +704,10 @@ def write_results_metadata(timestamp,monet_handler,psql_handler):
     with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
               f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
         f.write(f"MonetDB version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
-        f.write(f"Postgres version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}")
+        f.write(f"Postgres version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n\n")
+        f.write("Number of records for Scale Factors:\n")
+        for i in range(0,len(scales)):
+            f.write(f"SF {scales[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
 
 def write_results(monet_handler,psql_handler):
     now = datetime.datetime.now()
@@ -466,6 +733,13 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     configure_logger()
 
+    #If the user specified a dbfarm for MDB, start the server from the script
+    if args.dbfarm_monet:
+        m_server = MonetServer(args.dbfarm_monet,args.database)
+    # If the user specified a dbfarm for PSQL, start the server from the script
+    if args.dbfarm_psql:
+        p_server = PostgresServer(args.dbfarm_psql, args.database)
+
     if args.system == 'monetdb' or args.system == 'monet' or args.system == 'mdb':
         MonetHandler().benchmark()
     elif args.system == 'postgres' or args.system == 'psql'or args.system == 'postgis':
@@ -476,3 +750,9 @@ if __name__ == "__main__":
         m_handler.benchmark()
         p_handler.benchmark()
         write_results(m_handler,p_handler)
+
+    #Stopping servers, if they were started from the script
+    if args.dbfarm_monet:
+        m_server.stop_server(args.drop)
+    if args.dbfarm_psql:
+        p_server.stop_server(args.drop)
