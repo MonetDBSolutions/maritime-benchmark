@@ -437,9 +437,11 @@ class MonetServer:
         if not self.farm_is_running(self.dbfarm):
             if not self.farm_up(self.dbfarm):
                 self.destroy_farm(self.dbfarm)
+                return
         if not self.server_up(self.dbname):
             self.stop_server(args.drop)
-        logger.info(f'MonetDB: Started database {self.dbname} on {self.dbfarm}')
+        else:
+            logger.info(f'MonetDB: Started database {self.dbname} on {self.dbfarm}')
 
     def stop_server(self, destroy):
         self.server_down(self.dbname)
@@ -570,9 +572,11 @@ class PostgresServer:
         if not self.farm_is_running(self.dbfarm):
             if not self.farm_up(self.dbfarm):
                 self.destroy_farm(self.dbfarm)
+                return
         if not self.db_create(self.dbname):
             self.stop_server(args.drop)
-        logger.info(f'POSTGRES: Started database {self.dbname} on {self.dbfarm}')
+        else:
+            logger.info(f'POSTGRES: Started database {self.dbname} on {self.dbfarm}')
 
     def stop_server(self, destroy):
         if destroy:
@@ -694,7 +698,7 @@ def write_results_csv(timestamp):
             #When server_time is not available, leave the column as an empty string
             if monet_result["server_time"] < 0:
                 monet_result["server_time"] = ""
-            elif psql_result["server_time"] < 0:
+            if psql_result["server_time"] < 0:
                 psql_result["server_time"] = ""
             writer.writerow([f'{monet_result["scale"]}',f'{monet_result["operation"]}',
                             f'{monet_result["server_time"]}',f'{round(monet_result["client_time"],3)}',
