@@ -16,14 +16,14 @@ CREATE TABLE trajectory AS
 -- Query 3: Distance between ships and ports (Point-Point distance)
 CREATE TABLE ship_port_distance AS
   SELECT mmsi, libelle_po as port, q1.t as position_time,
-         st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+         st_distance(q1.geom::Geography,q2.geom::Geography,false) as distance
   FROM ais_dynamic as q1
   JOIN brittany_ports as q2
   ON TRUE;
 -- Query 4: Distance between ship trajectories and ports (Line-Point distance)
 CREATE TABLE trajectory_port_distance AS
   SELECT mmsi, libelle_po as port,
-         st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+         st_distance(q1.geom::Geography,q2.geom::Geography,false) as distance
   FROM trajectory as q1
   JOIN brittany_ports as q2
   ON TRUE;

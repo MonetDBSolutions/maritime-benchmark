@@ -79,11 +79,12 @@ class DatabaseHandler:
     args = parser.parse_args()
     data_dir = args.data
 
-    def __init__(self, system):
+    def __init__(self, system, result_dir):
         self.system = system
         self.cur_scale = None
         #Used to store record number for Scale Factors (used in performance results metadata)
         self.record_number = []
+        self.results_dir = f'{result_dir}/{system}'
 
     @staticmethod
     def register_result(system, scale, operation, server_time, client_time):
@@ -272,7 +273,7 @@ class DatabaseHandler:
             if not q:
                 continue
             # Replace placeholder %OUT% string with output directory
-            q = q.replace("%OUT%", f"{os.getcwd()}/out/{self.system}")
+            q = q.replace("%OUT%", self.results_dir)
             # If there is a Scale Factor, replace placehold %SF% with current scale factor
             if self.cur_scale > 0:
                 q = q.replace("%SF%", f"_{self.cur_scale}")
@@ -295,8 +296,8 @@ class DatabaseHandler:
             return
 
 class MonetHandler(DatabaseHandler):
-    def __init__(self):
-        super().__init__("monet")
+    def __init__(self, results_dir):
+        super().__init__("monet",results_dir)
         self.monet_version = None
         self.monet_revision = None
 
@@ -360,8 +361,8 @@ class MonetHandler(DatabaseHandler):
         return total_time
 
 class PostgresHandler(DatabaseHandler):
-    def __init__(self):
-        super().__init__("psql")
+    def __init__(self,results_dir):
+        super().__init__("psql",results_dir)
         self.postgis_version = None
         self.psql_version = None
 
@@ -718,10 +719,9 @@ def write_performance_results_metadata(timestamp, monet_handler, psql_handler):
         for i in range(0,len(scales)):
             f.write(f"SF {scales[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
 
-def write_performance_results(monet_handler, psql_handler):
-    now = datetime.datetime.now()
-    write_performance_results_csv(now)
-    write_performance_results_metadata(now, monet_handler, psql_handler)
+def write_performance_results(monet_handler, psql_handler, time):
+    write_performance_results_csv(time)
+    write_performance_results_metadata(time, monet_handler, psql_handler)
 
 def configure_logger():
     if args.debug:
@@ -733,11 +733,20 @@ def configure_logger():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+def create_query_results_dirs(time):
+    output_directory = f'{os.getcwd()}/out/{time.strftime("%d")}-{time.strftime("%m")}_' \
+                       f'{time.strftime("%H")}:{time.strftime("%M")}'
+    os.mkdir(output_directory)
+    os.mkdir(f"{output_directory}/monet/")
+    os.mkdir(f"{output_directory}/psql/")
+    os.mkdir(f"{output_directory}/comparison/")
+    return output_directory
+
 #As a convention, let's always use the last column as the processing results column
-def compare_results_file(monet_directory,psql_directory, filename):
+def compare_results_file(results_directory, filename):
     row_number = 1
     logger.info(f"Comparing query result file {filename}, outputting to {os.getcwd()}/out/comparison/{filename}")
-    with open(monet_directory+filename,'r') as monet_file, open(psql_directory+filename,'r') as psql_file, open(f'{os.getcwd()}/out/comparison/{filename}','w') as compare_file:
+    with open(f'{results_directory}/monet/{filename}','r') as monet_file, open(f'{results_directory}/psql/{filename}','r') as psql_file, open(f'{results_directory}/comparison/{filename}','w') as compare_file:
         monet_reader = csv.reader(monet_file,delimiter=',')
         psql_reader = csv.reader(psql_file, delimiter=',')
         compare_writer = csv.writer(compare_file,delimiter=',')
@@ -751,7 +760,7 @@ def compare_results_file(monet_directory,psql_directory, filename):
                     #TODO Change timezone in database, don't compensate here
                     m_date = m_date + datetime.timedelta(hours=2, minutes=0)
                     if not m_date == p_date:
-                        logger.error(f"Dates are not the same ({filename} -> Row {row_number} Column {i+1}")
+                        logger.error(f"Dates are not the same ({filename} -> Row {row_number} Column {i}")
                 #Float matching
                 elif re.match('[0-9]+\.[0-9]+',m_row[i]):
                     m_float = float(m_row[i])
@@ -759,7 +768,7 @@ def compare_results_file(monet_directory,psql_directory, filename):
                     if i+1 == len(m_row):
                         row_compare.append("{:.2f}".format(m_float - p_float))
                     elif m_float != p_float:
-                        logger.error(f"Floats are not the same ({filename} -> Row {row_number} Column {i+1}")
+                        logger.error(f"Floats are not the same ({filename} -> Row {row_number} Column {i}")
                 #Geometric object matching
                 elif re.match('[A-Z]+ \(-*[0-9]',m_row[i]):
                     if i+1 == len(m_row):
@@ -768,29 +777,29 @@ def compare_results_file(monet_directory,psql_directory, filename):
                         else:
                             row_compare.append(-1)
                     elif m_row[i] != p_row[i]:
-                        logger.error(f"Geoms are not the same ({filename} -> Row {row_number} Column {i+1}")
+                        logger.error(f"Geoms are not the same ({filename} -> Row {row_number} Column {i}")
                 #Other types matching
                 else:
-                    if i + 1 == len(m_row):
+                    if i+1 == len(m_row):
                         if m_row[i] == p_row[i]:
                             row_compare.append(0)
                         else:
                             row_compare.append(-1)
                     else:
-                        logger.error(f"Data is not the same ({filename} -> Row {row_number} Column {i+1}")
+                        if m_row[i] != p_row[i]:
+                            logger.error(f"Data is not the same ({filename} -> Row {row_number} Column {i}")
             row_number += 1
             compare_writer.writerow(row_compare)
             row_compare = []
 
-
-def compare_query_results():
+def compare_query_results(output_dir):
     logger.info("Comparing query results")
-    directory_monet = f"{os.getcwd()}/out/monet/"
-    directory_psql = f"{os.getcwd()}/out/psql/"
+    directory_monet = f'{output_dir}/monet/'
+    directory_psql = f'{output_dir}/psql/'
 
     for file in os.listdir(directory_monet):
         if os.path.isfile(directory_psql+file):
-            compare_results_file(directory_monet,directory_psql,file)
+            compare_results_file(output_dir,file)
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -813,13 +822,18 @@ if __name__ == "__main__":
     elif args.system == 'postgres' or args.system == 'psql'or args.system == 'postgis':
         PostgresHandler().benchmark()
     else:
-        m_handler = MonetHandler()
-        p_handler = PostgresHandler()
+        now = datetime.datetime.now()
+        if args.export:
+            results_dir = create_query_results_dirs(now)
+        else:
+            results_dir = None
+        m_handler = MonetHandler(results_dir)
+        p_handler = PostgresHandler(results_dir)
         m_handler.benchmark()
         p_handler.benchmark()
-        write_performance_results(m_handler, p_handler)
+        write_performance_results(m_handler, p_handler,now)
         if args.export:
-            compare_query_results()
+            compare_query_results(results_dir)
 
     #Stopping servers, if they were started from the script
     if args.dbfarm_monet:
