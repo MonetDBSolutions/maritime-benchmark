@@ -10,6 +10,9 @@ import logging
 import datetime
 import csv
 from time import sleep
+import re
+
+#TODO: Fix timezone difference in results between psql and monet
 
 #TODO: Improve the return values of functions like execute_query, get_version and get_server_query_time
 #TODO: Use the MinTimeLogger from extras (psql)
@@ -684,7 +687,7 @@ class PostgresServer:
             return False
         return True
 
-def write_results_csv(timestamp):
+def write_performance_results_csv(timestamp):
     monet_array = results['monet']
     psql_array = results['psql']
     with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
@@ -704,19 +707,21 @@ def write_results_csv(timestamp):
                             f'{monet_result["server_time"]}',f'{round(monet_result["client_time"],3)}',
                             f'{psql_result["server_time"]}',f'{round(psql_result["client_time"],3)}'])
 
-def write_results_metadata(timestamp,monet_handler,psql_handler):
+def write_performance_results_metadata(timestamp, monet_handler, psql_handler):
     with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
               f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
-        f.write(f"MonetDB version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
-        f.write(f"Postgres version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n\n")
+        f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
+        f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
+        f.write(f"Postgres server version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n")
+        f.write(f"psycopg2 client version {psycopg2.__version__}\n\n")
         f.write("Number of records for Scale Factors:\n")
         for i in range(0,len(scales)):
             f.write(f"SF {scales[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
 
-def write_results(monet_handler,psql_handler):
+def write_performance_results(monet_handler, psql_handler):
     now = datetime.datetime.now()
-    write_results_csv(now)
-    write_results_metadata(now,monet_handler,psql_handler)
+    write_performance_results_csv(now)
+    write_performance_results_metadata(now, monet_handler, psql_handler)
 
 def configure_logger():
     if args.debug:
@@ -727,6 +732,65 @@ def configure_logger():
     formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+#As a convention, let's always use the last column as the processing results column
+def compare_results_file(monet_directory,psql_directory, filename):
+    row_number = 1
+    logger.info(f"Comparing query result file {filename}, outputting to {os.getcwd()}/out/comparison/{filename}")
+    with open(monet_directory+filename,'r') as monet_file, open(psql_directory+filename,'r') as psql_file, open(f'{os.getcwd()}/out/comparison/{filename}','w') as compare_file:
+        monet_reader = csv.reader(monet_file,delimiter=',')
+        psql_reader = csv.reader(psql_file, delimiter=',')
+        compare_writer = csv.writer(compare_file,delimiter=',')
+        row_compare = []
+        for m_row, p_row in zip(monet_reader,psql_reader):
+            for i in range(0,len(m_row)):
+                #Date matching
+                if re.match('[0-9]{4}-[0-9]{2}-[0-9]{2}',m_row[i]):
+                    m_date = datetime.datetime.strptime(m_row[i],'%Y-%m-%d %H:%M:%S.%f')
+                    p_date = datetime.datetime.strptime(p_row[i], '%Y-%m-%d %H:%M:%S')
+                    #TODO Change timezone in database, don't compensate here
+                    m_date = m_date + datetime.timedelta(hours=2, minutes=0)
+                    if not m_date == p_date:
+                        logger.error(f"Dates are not the same ({filename} -> Row {row_number} Column {i+1}")
+                #Float matching
+                elif re.match('[0-9]+\.[0-9]+',m_row[i]):
+                    m_float = float(m_row[i])
+                    p_float = float(p_row[i])
+                    if i+1 == len(m_row):
+                        row_compare.append("{:.2f}".format(m_float - p_float))
+                    elif m_float != p_float:
+                        logger.error(f"Floats are not the same ({filename} -> Row {row_number} Column {i+1}")
+                #Geometric object matching
+                elif re.match('[A-Z]+ \(-*[0-9]',m_row[i]):
+                    if i+1 == len(m_row):
+                        if m_row[i] == p_row[i]:
+                            row_compare.append(0)
+                        else:
+                            row_compare.append(-1)
+                    elif m_row[i] != p_row[i]:
+                        logger.error(f"Geoms are not the same ({filename} -> Row {row_number} Column {i+1}")
+                #Other types matching
+                else:
+                    if i + 1 == len(m_row):
+                        if m_row[i] == p_row[i]:
+                            row_compare.append(0)
+                        else:
+                            row_compare.append(-1)
+                    else:
+                        logger.error(f"Data is not the same ({filename} -> Row {row_number} Column {i+1}")
+            row_number += 1
+            compare_writer.writerow(row_compare)
+            row_compare = []
+
+
+def compare_query_results():
+    logger.info("Comparing query results")
+    directory_monet = f"{os.getcwd()}/out/monet/"
+    directory_psql = f"{os.getcwd()}/out/psql/"
+
+    for file in os.listdir(directory_monet):
+        if os.path.isfile(directory_psql+file):
+            compare_results_file(directory_monet,directory_psql,file)
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -753,7 +817,9 @@ if __name__ == "__main__":
         p_handler = PostgresHandler()
         m_handler.benchmark()
         p_handler.benchmark()
-        write_results(m_handler,p_handler)
+        write_performance_results(m_handler, p_handler)
+        if args.export:
+            compare_query_results()
 
     #Stopping servers, if they were started from the script
     if args.dbfarm_monet:
