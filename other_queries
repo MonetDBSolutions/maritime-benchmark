@@ -1,3 +1,41 @@
+-- Monet
+-- Query 7: FAO areas intersected by ship trajectories
+CREATE TABLE fao_trajectory_intersect AS
+  SELECT mmsi, fid as fao_id
+  FROM trajectory as q1
+  JOIN fao_areas as q2
+  ON st_intersectsgeographic(q1.geom,q2.geom);
+-- Query 8: Distance between ship trajectories and europe maritime boundaries (Line-Line distance + transform)
+CREATE TABLE trajectory_coastline_distance AS
+  SELECT mmsi, q2.gid,
+         st_distancegeographic(st_transform(q1.geom,4326),st_transform(q2.geom,4326)) as distance
+  FROM trajectory as q1
+  JOIN europe_maritime_boundaries as q2
+  ON TRUE
+  WHERE st_dwithingeographic(st_transform(q1.geom,4326),st_transform(q2.geom,4326),30000);
+
+-- PSQL
+-- Query 8: Distance between ship trajectories and europe maritime boundaries (Line-Line distance + transform)
+CREATE TABLE trajectory_europe_distance AS
+  SELECT mmsi, q2.gid,
+         st_distance(q1.geom::Geography,st_transform(q2.geom,4326)::Geography) as distance
+  FROM trajectory as q1
+  JOIN europe_maritime_boundaries as q2
+  ON TRUE
+  WHERE st_dwithin(q1.geom::Geography,st_transform(q2.geom,4326)::Geography,30000);
+
+
+
+
+
+CREATE TABLE trajectory_coastline_distance AS
+  SELECT mmsi, q2.path as gid,
+         st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+  FROM trajectory as q1
+  JOIN st_dump((select geom from europe_coastline)) as q2
+  ON q2.path = array[1]
+  WHERE st_dwithin(q1.geom::Geography,q2.geom::Geography,30000);
+
 -- Old queries
 -- PSQL
 CREATE TABLE distance_trajectory_port AS SELECT mmsi, libelle_po as port_name, st_distance(q1.geom::Geography,q2.geom::Geography, false) as distance FROM brittany_ports as q1 JOIN trajectory as q2 ON TRUE;

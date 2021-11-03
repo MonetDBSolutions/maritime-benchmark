@@ -15,15 +15,29 @@ CREATE TABLE trajectory AS
   GROUP BY mmsi;
 -- Query 3: Distance between ships and ports (Point-Point distance)
 CREATE TABLE ship_port_distance AS
-  SELECT mmsi, libelle_po as port, q1.t as position_time,
+  SELECT mmsi, libelle_po as port, q2.gml_id as port_id, q1.t as position_time,
          st_distancegeographic(q1.geom,q2.geom) as distance
   FROM ais_dynamic as q1
   JOIN brittany_ports as q2
   ON TRUE;
 -- Query 4: Distance between ship trajectories and ports (Line-Point distance)
 CREATE TABLE trajectory_port_distance AS
-  SELECT mmsi, libelle_po as port,
+  SELECT mmsi, libelle_po as port, q2.gml_id as port_id,
          st_distancegeographic(q1.geom,q2.geom) as distance
   FROM trajectory as q1
   JOIN brittany_ports as q2
   ON TRUE;
+-- Query 5: Trajectories within a certain distance from wpi_ports in France (Line-Point DWithin)
+CREATE TABLE trajectory_close_france
+  SELECT mmsi, q2.index_no as port_id,
+         st_distancegeographic(q1.geom,q2.geom) as distance
+  FROM trajectory as q1
+  JOIN wpi_ports as q2
+  ON q2.country = 'FR' AND st_dwithingeographic(q1.geom,q2.geom,50000);
+-- Query 6: Distance between ship trajectories within 5000 meters of one another (Line-Line DWithin)
+CREATE TABLE close_trajectories AS
+  SELECT q1.mmsi as mmsi1, q2.mmsi as mmsi2,
+         st_distancegeographic(q1.geom,q2.geom) as distance
+  FROM trajectory as q1
+  JOIN trajectory as q2
+  ON q1.mmsi <> q2.mmsi AND st_dwithingeographic(q1.geom,q2.geom,5000);

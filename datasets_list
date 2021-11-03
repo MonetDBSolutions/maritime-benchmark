@@ -1,13 +1,16 @@
 Used:
     Vessel data:
         - dynamic_ships -> Renamed to ais_dynamic
-        - static_ships -> Renamed to ais_static
 
     Geographic features:
         - brittany_ports
+        - europe_coastline
+        - world_eez
+        - europe_maritime_borders
 
 Not Used:
     Vessel data:
+        - static_ships
         - dynamic_sar
         - dynamic_aton
         - aton
@@ -21,14 +24,12 @@ Not Used:
 
     Geographic features:
         - seadata_ports;
-        - europe_coastline;
         - fao_areas;
         - fishing_areas;
         - fishing_interdiction;
         - brest_receptor;
         - brest_coverage;
         - wpi_ports;
-        - europe_borders;
         - natura_protected_areas;
 
     Environmental data:

@@ -27,23 +27,19 @@ parser = argparse.ArgumentParser(
     ''')
 #Program arguments
 parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required = True, default=None)
-parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
-parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
 parser.add_argument('--scale', type=float, nargs='+', help='Benchmark scale factor(s) (only values < 1 allowed)', default=0)
+
 parser.add_argument('--dbfarm_monet', type=str, help='MonetDB database farm to be used in starting the server from the script', default=None)
 parser.add_argument('--dbfarm_psql', type=str, help='PostgreSQL database directory to be used in starting the server from the script', default=None)
 
+parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
+parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
+
 #Switch (bool) arguments
-parser.add_argument('--debug', help='Turn on debugging log', dest='debug', action='store_true')
-parser.add_argument('--no-debug', help='Turn off debugging log (default is off)', dest='debug', action='store_false')
+parser.add_argument('--debug', help='Turn on debugging log (default is off)', dest='debug', action='store_true')
 parser.set_defaults(debug=False)
-parser.add_argument('--query', help='Turn on querying the data', dest='query', action='store_true')
-parser.add_argument('--no-query', help='Turn off querying the data (default is on)', dest='query', action='store_false')
-parser.set_defaults(query=True)
-parser.add_argument('--export', help='Turn on exporting query tables after execution', dest='export', action='store_true')
-parser.add_argument('--no-export', help='Turn off exporting query tables after execution (default is off)', dest='export', action='store_false')
+parser.add_argument('--export', help='Turn on exporting query tables after execution (default is off)', dest='export', action='store_true')
 parser.set_defaults(export=False)
-parser.add_argument('--drop', help='Turn on dropping the data after execution', dest='drop', action='store_true')
 parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop', action='store_false')
 parser.set_defaults(drop=True)
 
@@ -63,8 +59,35 @@ load_tables = {
           [
             {
             "tablename":"brittany_ports",
-            "filename":"brittany_ports.shp"
+            "filename":"brittany_ports.shp",
+            "srid":"4326"
+            },
+            {
+            "tablename":"europe_maritime_boundaries",
+            "filename":"europe_maritime_borders.shp",
+            "srid":"4258"
+            },
+            {
+            "tablename":"europe_coastline",
+            "filename":"europe_coastline.shp",
+            "srid":"3035"
+            },
+            {
+            "tablename":"fao_areas",
+            "filename":"fao.shp",
+            "srid":"4326"
+            },
+            {
+            "tablename":"wpi_ports",
+            "filename":"wpi.shp",
+            "srid":"4326"
             }
+            #,
+            #{
+            #"tablename":"world_eez",
+            #"filename":"eez.shp",
+            #"srid":"4326"
+            #}
           ]
 }
 
@@ -158,8 +181,7 @@ class DatabaseHandler:
             self.create_schema(cur)
             self.get_version(cur)
             self.load_data(cur)
-            if args.query:
-                self.run_queries(cur)
+            self.run_queries(cur)
             if args.export:
                 self.export_query_tables(cur)
             if args.drop:
@@ -417,8 +439,7 @@ class PostgresHandler(DatabaseHandler):
     def load_shp(self, cur):
         total_time = 0
         for csv_t in load_tables["shape_tables"]:
-            # TODO Some shapefiles can have different SRID
-            query = f'shp2pgsql -I -s 4326 \'{data_dir}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
+            query = f'shp2pgsql -I -s {csv_t["srid"]} \'{data_dir}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
             logger.debug(f"Executing command '{query}'")
             start = timer()
             try:
@@ -695,7 +716,7 @@ def write_performance_results_csv(timestamp):
               f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv', 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
         writer.writerow(results_header)
-        line_count = len(monet_array)
+        line_count = min(len(monet_array),len(monet_array))
         for i in range(line_count):
             monet_result = monet_array[i]
             psql_result = psql_array[i]
@@ -745,8 +766,11 @@ def create_query_results_dirs(time):
 #As a convention, let's always use the last column as the processing results column
 def compare_results_file(results_directory, filename):
     row_number = 1
+    result_array = []
+    csv.field_size_limit(sys.maxsize)
     logger.info(f"Comparing query result file {filename}, outputting to {os.getcwd()}/out/comparison/{filename}")
-    with open(f'{results_directory}/monet/{filename}','r') as monet_file, open(f'{results_directory}/psql/{filename}','r') as psql_file, open(f'{results_directory}/comparison/{filename}','w') as compare_file:
+    with open(f'{results_directory}/monet/{filename}','r') as monet_file, open(f'{results_directory}/psql/{filename}','r') as psql_file, \
+        open(f'{results_directory}/comparison/{filename}','w') as compare_file, open(f'{results_directory}/comparison/{filename}_summary.txt','w') as compare_summary:
         monet_reader = csv.reader(monet_file,delimiter=',')
         psql_reader = csv.reader(psql_file, delimiter=',')
         compare_writer = csv.writer(compare_file,delimiter=',')
@@ -766,31 +790,41 @@ def compare_results_file(results_directory, filename):
                     m_float = float(m_row[i])
                     p_float = float(p_row[i])
                     if i+1 == len(m_row):
-                        row_compare.append("{:.2f}".format(m_float - p_float))
+                        dif = m_float - p_float
+                        result_array.append(dif)
+                        row_compare.append("{:.5f}".format(dif))
                     elif m_float != p_float:
                         logger.error(f"Floats are not the same ({filename} -> Row {row_number} Column {i}")
                 #Geometric object matching
                 elif re.match('[A-Z]+ \(-*[0-9]',m_row[i]):
                     if i+1 == len(m_row):
                         if m_row[i] == p_row[i]:
-                            row_compare.append(0)
+                            bool_v = 0
                         else:
-                            row_compare.append(-1)
+                            bool_v = -1
+                        result_array.append(bool_v)
+                        row_compare.append(bool_v)
                     elif m_row[i] != p_row[i]:
                         logger.error(f"Geoms are not the same ({filename} -> Row {row_number} Column {i}")
                 #Other types matching
                 else:
                     if i+1 == len(m_row):
                         if m_row[i] == p_row[i]:
-                            row_compare.append(0)
+                            bool_v = 0
                         else:
-                            row_compare.append(-1)
+                            bool_v = -1
+                        result_array.append(bool_v)
+                        row_compare.append(bool_v)
                     else:
                         if m_row[i] != p_row[i]:
                             logger.error(f"Data is not the same ({filename} -> Row {row_number} Column {i}")
             row_number += 1
             compare_writer.writerow(row_compare)
             row_compare = []
+        #Get avg, max and min from comparisons
+        compare_summary.write(f"Avg: {'{:.5f}'.format(sum(result_array)/len(result_array))}\n")
+        compare_summary.write(f"Min: {'{:.5f}'.format(min(result_array))}\n")
+        compare_summary.write(f"Max: {'{:.5f}'.format(max(result_array))}\n")
 
 def compare_query_results(output_dir):
     logger.info("Comparing query results")

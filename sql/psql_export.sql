@@ -15,12 +15,24 @@ WITH (FORMAT CSV);
 -- Query 3
 COPY
   (SELECT * FROM ship_port_distance
-  ORDER BY mmsi, position_time, port)
+  ORDER BY mmsi, position_time, port_id)
 TO '%OUT%/ship_port_distance%SF%.csv'
 WITH (FORMAT CSV);
 -- Query 4
 COPY
   (SELECT * FROM trajectory_port_distance
-  ORDER BY mmsi, port)
+  ORDER BY mmsi, port_id)
 TO '%OUT%/trajectory_port_distance%SF%.csv'
+WITH (FORMAT CSV);
+-- Query 5
+COPY
+  (SELECT * FROM trajectory_close_france
+  ORDER BY mmsi, port_id)
+TO '%OUT%/trajectory_close_france%SF%.csv'
+WITH (FORMAT CSV);
+-- Query 6
+COPY
+  (SELECT * FROM close_trajectories
+  ORDER BY mmsi1, mmsi2)
+TO '%OUT%/close_trajectories%SF%.csv'
 WITH (FORMAT CSV);
