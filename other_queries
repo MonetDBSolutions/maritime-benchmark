@@ -1,10 +1,22 @@
 -- Monet
 -- Query 7: FAO areas intersected by ship trajectories
+-- Takes 4 minutes with 0.0001
 CREATE TABLE fao_trajectory_intersect AS
   SELECT mmsi, fid as fao_id
   FROM trajectory as q1
   JOIN fao_areas as q2
-  ON st_intersectsgeographic(q1.geom,q2.geom);
+  ON st_intersectsgeographic(q1.geom,q2.geom)
+  AND q2.f_subarea IN ('27.7','27.8');
+-- Takes 40 secs with 0.0001
+CREATE TABLE fao_trajectory_intersect AS
+  SELECT mmsi, fid as fao_id
+  FROM trajectory as q1
+  JOIN fao_areas as q2
+  ON st_intersectsgeographic(q1.geom,q2.geom)
+  AND q2.f_division IN ('27.8.a','27.8.b','27.8.d','27.7.d','27.7.e','27.7.h','27.7.f','27.7.g','27.7.j');
+
+
+
 -- Query 8: Distance between ship trajectories and europe maritime boundaries (Line-Line distance + transform)
 CREATE TABLE trajectory_coastline_distance AS
   SELECT mmsi, q2.gid,

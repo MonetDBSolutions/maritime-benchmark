@@ -28,16 +28,30 @@ CREATE TABLE trajectory_port_distance AS
   JOIN brittany_ports as q2
   ON TRUE;
 -- Query 5: Trajectories within a certain distance from wpi_ports in France (Line-Point DWithin)
-CREATE TABLE trajectory_close_france
+CREATE TABLE trajectory_close_france AS
   SELECT mmsi, q2.index_no as port_id,
-         st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+         st_distance(q1.geom::Geography,q2.geom::Geography,false) as distance
   FROM trajectory as q1
   JOIN wpi_ports as q2
-  ON q2.country = 'FR' AND st_dwithin(q1.geom::Geography,q2.geom::Geography,50000);
+  ON q2.country = 'FR' AND st_dwithin(q1.geom::Geography,q2.geom::Geography,50000,false);
 -- Query 6: Distance between ship trajectories within 5000 meters of one another (Line-Line DWithin)
 CREATE TABLE close_trajectories AS
   SELECT q1.mmsi as mmsi1, q2.mmsi as mmsi2,
-         st_distance(q1.geom::Geography,q2.geom::Geography) as distance
+         st_distance(q1.geom::Geography,q2.geom::Geography,false) as distance
   FROM trajectory as q1
   JOIN trajectory as q2
-  ON q1.mmsi != q2.mmsi AND st_dwithin(q1.geom::Geography,q2.geom::Geography,5000);
+  ON q1.mmsi != q2.mmsi AND st_dwithin(q1.geom::Geography,q2.geom::Geography,5000,false);
+-- Query 7: FAO areas intersected by ship trajectories (Line-Polygon DIntersects)
+CREATE TABLE fao_trajectory_intersect AS
+  SELECT mmsi, fid::INTEGER as fao_id
+  FROM trajectory as q1
+  JOIN fao_areas as q2
+  ON st_intersects(q1.geom::Geography,q2.geom::Geography)
+  AND q2.f_division IN ('27.8.a','27.8.b','27.8.d','27.7.d','27.7.e','27.7.h','27.7.f','27.7.g','27.7.j');
+-- Query 8: FAO areas intersected by fishing interdiction area (Polygon-Polygon DIntersects)
+CREATE TABLE fao_fishing_intersect AS
+  SELECT q1.fid as fishing_id, q2.fid::INTEGER as fao_id
+  FROM fishing_interdiction as q1
+  JOIN fao_areas as q2
+  ON st_intersects(q1.geom::Geography,q2.geom::Geography)
+  AND q2.f_division IN ('27.8.a','27.8.b','27.8.d','27.7.d','27.7.e','27.7.h','27.7.f','27.7.g','27.7.j');
