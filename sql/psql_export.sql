@@ -44,7 +44,7 @@ TO '%OUT%/Q7_fao_trajectory_intersect%SF%.csv'
 WITH (FORMAT CSV);
 -- Query 8
 COPY
-  (SELECT fishing_id, fao_id FROM fao_fishing_intersect
+  (SELECT * FROM fao_fishing_intersect
   ORDER BY fishing_id,fao_id)
 TO '%OUT%/Q8_fao_fishing_intersect%SF%.csv'
 WITH (FORMAT CSV);

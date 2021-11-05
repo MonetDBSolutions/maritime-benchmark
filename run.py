@@ -5,110 +5,159 @@ import sys
 import os
 from timeit import default_timer as timer
 import psycopg2
-from subprocess import run, CalledProcessError, check_output, STDOUT, DEVNULL
+from subprocess import run, CalledProcessError, check_output, STDOUT
 import logging
 import datetime
 import csv
 from time import sleep
-import re
 
-#TODO: Improve the return values of functions like execute_query, get_version and get_server_query_time
-#TODO: Use the MinTimeLogger from extras (psql)
-#TODO: Import download data script into here?
-#TODO: Read from CSV header; Create table from columns of CSV
-#TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
+# TODO: Improve the return values of functions like execute_query, get_version and get_server_query_time
+# TODO: Use the MinTimeLogger from extras (psql)
+# TODO: Import download data script into here?
+# TODO: Read from CSV header; Create table from columns of CSV
+# TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
 
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',
     epilog='''
     This program loads and executes the Geographic data benchmark on MonetDB and PostGIS.
     ''')
-#Program arguments
-parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required = True, default=None)
-parser.add_argument('--scale', type=float, nargs='+', help='Benchmark scale factor(s) (only values < 1 allowed)', default=0)
+# Program arguments
+parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required=True, default=None)
+parser.add_argument('--scale', type=float, nargs='+', help='Benchmark scale factor(s) (only values < 1 allowed)',
+                    default=0)
 
-parser.add_argument('--dbfarm_monet', type=str, help='MonetDB database farm to be used in starting the server from the script', default=None)
-parser.add_argument('--dbfarm_psql', type=str, help='PostgreSQL database directory to be used in starting the server from the script', default=None)
+parser.add_argument('--dbfarm_monet', type=str,
+                    help='MonetDB database farm to be used in starting the server from the script', default=None)
+parser.add_argument('--dbfarm_psql', type=str,
+                    help='PostgreSQL database directory to be used in starting the server from the script',
+                    default=None)
 
 parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
 parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
 
-#Switch (bool) arguments
+# Switch (bool) arguments
 parser.add_argument('--debug', help='Turn on debugging log (default is off)', dest='debug', action='store_true')
 parser.set_defaults(debug=False)
-parser.add_argument('--export', help='Turn on exporting query tables after execution (default is off)', dest='export', action='store_true')
+parser.add_argument('--export', help='Turn on exporting query tables after execution (default is off)', dest='export',
+                    action='store_true')
 parser.set_defaults(export=False)
-parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop', action='store_false')
+parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop',
+                    action='store_false')
 parser.set_defaults(drop=True)
 
 load_tables = {
-  "csv_tables":
-          [
+    "csv_tables":
+        [
             {
-            "tablename":"ais_dynamic",
-            "filename":"ais_dynamic",
-            "columns":"mmsi,status,turn,speed,course,heading,lon,lat,ts",
-            "timestamp":"ts",
-            "geom":"lon,lat",
-            "scalable":"true"
+                "tablename": "ais_dynamic",
+                "filename": "ais_dynamic",
+                "columns": "mmsi,status,turn,speed,course,heading,lon,lat,ts",
+                "timestamp": "ts",
+                "geom": "lon,lat",
+                "scalable": "true"
             }
-          ],
-  "shape_tables":
-          [
+        ],
+    "shape_tables":
+        [
             {
-            "tablename":"brittany_ports",
-            "filename":"brittany_ports.shp",
-            "srid":"4326"
+                "tablename": "brittany_ports",
+                "filename": "brittany_ports.shp",
+                "srid": "4326"
             },
             {
-            "tablename":"europe_maritime_boundaries",
-            "filename":"europe_maritime_borders.shp",
-            "srid":"4258"
+                "tablename": "europe_maritime_boundaries",
+                "filename": "europe_maritime_borders.shp",
+                "srid": "4258"
             },
             {
-            "tablename":"europe_coastline",
-            "filename":"europe_coastline.shp",
-            "srid":"3035"
+                "tablename": "europe_coastline",
+                "filename": "europe_coastline.shp",
+                "srid": "3035"
             },
             {
-            "tablename":"fao_areas",
-            "filename":"fao.shp",
-            "srid":"4326"
+                "tablename": "fao_areas",
+                "filename": "fao.shp",
+                "srid": "4326"
             },
             {
-            "tablename":"wpi_ports",
-            "filename":"wpi.shp",
-            "srid":"4326"
+                "tablename": "wpi_ports",
+                "filename": "wpi.shp",
+                "srid": "4326"
             },
             {
-            "tablename":"fishing_areas",
-            "filename":"fishing_areas_eu.shp",
-            "srid":"4326"
+                "tablename": "fishing_areas",
+                "filename": "fishing_areas_eu.shp",
+                "srid": "4326"
             },
             {
-            "tablename":"fishing_interdiction",
-            "filename":"fishing_interdiction.shp",
-            "srid":"4326"
+                "tablename": "fishing_interdiction",
+                "filename": "fishing_interdiction.shp",
+                "srid": "4326"
             }
-            #,
-            #{
-            #"tablename":"world_eez",
-            #"filename":"eez.shp",
-            #"srid":"4326"
-            #}
-          ]
+            # ,
+            # {
+            # "tablename":"world_eez",
+            # "filename":"eez.shp",
+            # "srid":"4326"
+            # }
+        ]
 }
+
+queries = [
+    {
+        "q_num": 1,
+        "q_name": "trajectory_segments",
+        "comparison": None
+    },
+    {
+        "q_num": 2,
+        "q_name": "trajectory",
+        "comparison": None
+    },
+    {
+        "q_num": 3,
+        "q_name": "ship_port_distance",
+        "comparison": "float"
+    },
+    {
+        "q_num": 4,
+        "q_name": "trajectory_port_distance",
+        "comparison": "float"
+    },
+    {
+        "q_num": 5,
+        "q_name": "trajectory_close_france",
+        "comparison": "float"
+    },
+    {
+        "q_num": 6,
+        "q_name": "close_trajectories",
+        "comparison": "float"
+    },
+    {
+        "q_num": 7,
+        "q_name": "fao_trajectory_intersect",
+        "comparison": "bool"
+    },
+    {
+        "q_num": 8,
+        "q_name": "fao_fishing_intersect",
+        "comparison": "bool"
+    }
+]
 
 results = {
     "monet": [],
     "psql": []
 }
-#CSV Header for performance comparison
-results_header = ['SF','Operation','Monet_Server_Time','Monet_Client_Time','PSQL_Server_Time','PSQL_Client_Time']
-#CSV Header for result comparison
-comparison_header = ['Monet_Result','PSQL_Result','Dif_Result','Relative_Difference']
-#Queries that can be compared (for example, comparing distance results)
-query_type_float = [False,False,True,True,True,True,False,False]
+# CSV Header for performance comparison
+results_header = ['SF', 'Operation', 'Monet_Server_Time', 'Monet_Client_Time', 'PSQL_Server_Time', 'PSQL_Client_Time']
+# CSV Header for result comparison (floats)
+comparison_header_float = ['Monet_Result', 'PSQL_Result', 'Dif_Result', 'Relative_Difference']
+# CSV Header for result comparison (bool)
+comparison_header_bool = ['Monet_Result', 'PSQL_Result', 'Same_Result']
+
 
 class DatabaseHandler:
     args = parser.parse_args()
@@ -117,9 +166,9 @@ class DatabaseHandler:
     def __init__(self, system, result_dir):
         self.system = system
         self.cur_scale = None
-        #Used to store record number for Scale Factors (used in performance results metadata)
+        # Used to store record number for Scale Factors (used in performance results metadata)
         self.record_number = []
-        self.results_dir = f'{result_dir}/{system}'
+        self.results_dir = f'{result_dir}/query_{system}'
 
     @staticmethod
     def register_result(system, scale, operation, server_time, client_time):
@@ -151,7 +200,7 @@ class DatabaseHandler:
         output_file_name = f'{data_dir}/{input_name}_SF_{scale}.csv'
         if os.path.isfile(output_file_name):
             logger.debug(f"Found already existing csv {output_file_name}")
-            #Register the number of records in Scale Factor
+            # Register the number of records in Scale Factor
             with open(output_file_name) as f:
                 self.record_number.append(sum(1 for l in f))
             return output_file_name
@@ -216,10 +265,10 @@ class DatabaseHandler:
         for q in geo_ddl:
             if not q:
                 continue
-            if not self.execute_query(cur,q):
+            if not self.execute_query(cur, q):
                 continue
 
-    def get_version(self,cur):
+    def get_version(self, cur):
         pass
 
     def load_data(self, cur):
@@ -228,7 +277,7 @@ class DatabaseHandler:
         total_time += self.load_shp(cur)
         logger.info("All loads in %6.3f seconds" % total_time)
 
-    def load_csv(self,cur):
+    def load_csv(self, cur):
         total_time = 0
         for csv_t in load_tables["csv_tables"]:
             if "scalable" in csv_t and self.cur_scale != 0:
@@ -236,16 +285,16 @@ class DatabaseHandler:
             else:
                 filename = f'{data_dir}/{csv_t["filename"]}.csv'
             start = timer()
-            if not self.copy_into(cur,csv_t["tablename"],csv_t["columns"],filename):
+            if not self.copy_into(cur, csv_t["tablename"], csv_t["columns"], filename):
                 continue
             server_time = self.get_server_query_time(cur)
 
             if "timestamp" in csv_t:
-                if not self.add_timestamp(cur,csv_t["tablename"],csv_t["timestamp"]):
+                if not self.add_timestamp(cur, csv_t["tablename"], csv_t["timestamp"]):
                     continue
                 server_time += self.get_server_query_time(cur)
             if "geom" in csv_t:
-                if not self.add_geom(cur,csv_t["tablename"],csv_t["geom"]):
+                if not self.add_geom(cur, csv_t["tablename"], csv_t["geom"]):
                     continue
                 server_time += self.get_server_query_time(cur)
 
@@ -253,12 +302,13 @@ class DatabaseHandler:
             self.register_result(self.system, self.cur_scale, f'CSV_{csv_t["tablename"]}', server_time, client_time)
             total_time += client_time
             if "scalable" in csv_t and self.cur_scale > 0:
-                logger.debug("CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], self.cur_scale, client_time))
+                logger.debug(
+                    "CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], self.cur_scale, client_time))
             else:
                 logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (filename, client_time))
         return total_time
 
-    def get_server_query_time(self,cur):
+    def get_server_query_time(self, cur):
         return -1
 
     def copy_into(self, cur, tablename, columns, filename):
@@ -270,7 +320,7 @@ class DatabaseHandler:
     def add_timestamp(self, cur, tablename, attribute):
         pass
 
-    def load_shp(self,cur):
+    def load_shp(self, cur):
         pass
 
     def run_queries(self, cur):
@@ -283,8 +333,8 @@ class DatabaseHandler:
             if not q:
                 continue
             start = timer()
-            if not self.execute_query(cur,q):
-                self.register_result(self.system, self.cur_scale, f'Q{query_id}', -1, -1)
+            if not self.execute_query(cur, q):
+                self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id]["q_name"]}', -1, -1)
                 continue
             client_time = timer() - start
             server_time = self.get_server_query_time(cur)
@@ -298,7 +348,7 @@ class DatabaseHandler:
         logger.info("Executed all queries in %6.3f seconds" % total_time)
         self.register_result(self.system, self.cur_scale, "All queries", -1, total_time)
 
-    def export_query_tables(self,cur):
+    def export_query_tables(self, cur):
         geo_export = self.open_and_split_sql_file(f"{self.system}_export.sql")
         logger.debug("Exporting data")
 
@@ -313,11 +363,11 @@ class DatabaseHandler:
             else:
                 q = q.replace("%SF%", "")
             logger.debug(f"Executing export query '{q}'")
-            if not self.execute_query(cur,q):
+            if not self.execute_query(cur, q):
                 continue
 
     # TODO What should we do if the queries fail?
-    def drop_schema(self,cur):
+    def drop_schema(self, cur):
         logger.debug("Dropping schema")
         if self.system == "monet":
             if not self.execute_query(cur, "SET SCHEMA = sys;"):
@@ -328,9 +378,10 @@ class DatabaseHandler:
         if not self.execute_query(cur, "DROP SCHEMA bench_geo cascade;"):
             return
 
+
 class MonetHandler(DatabaseHandler):
     def __init__(self, results_dir):
-        super().__init__("monet",results_dir)
+        super().__init__("monet", results_dir)
         self.monet_version = None
         self.monet_revision = None
 
@@ -339,7 +390,7 @@ class MonetHandler(DatabaseHandler):
         return conn
 
     def get_version(self, cur):
-        if not self.execute_query(cur,"select name, value from sys.env() where name in ('monet_version','revision');"):
+        if not self.execute_query(cur, "select name, value from sys.env() where name in ('monet_version','revision');"):
             return "0"
         result = cur.fetchall()
         for r in result:
@@ -348,10 +399,10 @@ class MonetHandler(DatabaseHandler):
             elif r[0] == 'revision':
                 self.monet_revision = r[1]
 
-    def get_server_query_time(self,cur):
-        if not self.execute_query(cur,f"select extract(epoch from t) "
-                        f"from (select max(stop)-max(start) as t from querylog_history) "
-                        f"as a;"):
+    def get_server_query_time(self, cur):
+        if not self.execute_query(cur, f"select extract(epoch from t) "
+                                       f"from (select max(stop)-max(start) as t from querylog_history) "
+                                       f"as a;"):
             return -1
         result = cur.fetchone()
         if result is not None:
@@ -360,18 +411,18 @@ class MonetHandler(DatabaseHandler):
             return -1
 
     def copy_into(self, cur, tablename, columns, filename):
-        #TODO: Is it worth it to count the number of lines for the COPY INTO to be faster? -> Time it
+        # TODO: Is it worth it to count the number of lines for the COPY INTO to be faster? -> Time it
         with open(filename) as f:
             record_number = sum(1 for l in f)
         query = f'COPY {record_number} OFFSET 2 RECORDS INTO {tablename} ({columns}) FROM \'{filename}\' \
         ({columns}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
-        return self.execute_query(cur,query)
+        return self.execute_query(cur, query)
 
     def add_geom(self, cur, tablename, attribute):
         return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
 
     def add_timestamp(self, cur, tablename, attribute):
-        return self.execute_query(cur,f'UPDATE {tablename} SET t = epoch(cast({attribute} as int));')
+        return self.execute_query(cur, f'UPDATE {tablename} SET t = epoch(cast({attribute} as int));')
 
     def load_shp(self, cur):
         total_time = 0
@@ -391,9 +442,10 @@ class MonetHandler(DatabaseHandler):
             logger.debug("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
         return total_time
 
+
 class PostgresHandler(DatabaseHandler):
-    def __init__(self,results_dir):
-        super().__init__("psql",results_dir)
+    def __init__(self, results_dir):
+        super().__init__("psql", results_dir)
         self.postgis_version = None
         self.psql_version = None
 
@@ -401,16 +453,16 @@ class PostgresHandler(DatabaseHandler):
         conn = psycopg2.connect(f"dbname={args.database}")
         return conn
 
-    def prepare_connection(self,conn):
+    def prepare_connection(self, conn):
         conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
 
     def get_version(self, cur):
         self.get_postgis_version(cur)
         self.get_psql_version(cur)
 
-    def get_postgis_version(self,cur):
+    def get_postgis_version(self, cur):
         logger.debug("Getting postgis version")
-        if not self.execute_query(cur,"select PostGIS_Lib_Version();"):
+        if not self.execute_query(cur, "select PostGIS_Lib_Version();"):
             return "0"
 
         result = cur.fetchone()
@@ -419,9 +471,9 @@ class PostgresHandler(DatabaseHandler):
         else:
             self.postgis_version = "0"
 
-    def get_psql_version(self,cur):
+    def get_psql_version(self, cur):
         logger.debug("Getting psql version")
-        if not self.execute_query(cur,"SHOW server_version;"):
+        if not self.execute_query(cur, "SHOW server_version;"):
             return "0"
 
         result = cur.fetchone()
@@ -431,7 +483,7 @@ class PostgresHandler(DatabaseHandler):
             self.psql_version = "0"
 
     # We have not implemented server-side timing retrieval for Postgres yet, return placeholder value
-    def get_server_query_time(self,cur):
+    def get_server_query_time(self, cur):
         return -1
 
     def copy_into(self, cur, tablename, columns, filename):
@@ -442,7 +494,7 @@ class PostgresHandler(DatabaseHandler):
         return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
 
     def add_timestamp(self, cur, tablename, attribute):
-        return self.execute_query(cur,f'UPDATE {tablename} SET t = to_timestamp({attribute});')
+        return self.execute_query(cur, f'UPDATE {tablename} SET t = to_timestamp({attribute});')
 
     def load_shp(self, cur):
         total_time = 0
@@ -459,8 +511,9 @@ class PostgresHandler(DatabaseHandler):
             logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
         return total_time
 
+
 class MonetServer:
-    def __init__(self,dbfarm,dbname):
+    def __init__(self, dbfarm, dbname):
         self.dbfarm = dbfarm
         self.dbname = dbname
         self.start_server()
@@ -529,7 +582,7 @@ class MonetServer:
         if os.path.exists(dbfarm):
             cmd = "ps aux | grep monetdbd"
             try:
-                res = check_output(cmd,shell=True).decode()
+                res = check_output(cmd, shell=True).decode()
                 return 'monetdbd' in res and dbfarm in res
             except CalledProcessError as e:
                 logger.info('monetdbd is not running')
@@ -598,8 +651,9 @@ class MonetServer:
             return False
         return True
 
+
 class PostgresServer:
-    def __init__(self,dbfarm,dbname):
+    def __init__(self, dbfarm, dbname):
         self.dbfarm = dbfarm
         self.dbname = dbname
         self.start_server()
@@ -629,7 +683,7 @@ class PostgresServer:
         if not os.path.exists(dbfarm):
             cmd = [os.path.join(prefix, 'initdb'), '-D', str(dbfarm)]
             try:
-                check_output(cmd,stderr=STDOUT)
+                check_output(cmd, stderr=STDOUT)
                 logger.info('created dbfarm %s' % dbfarm)
             except CalledProcessError as e:
                 logger.error(e)
@@ -668,7 +722,7 @@ class PostgresServer:
         if os.path.exists(dbfarm):
             cmd = "ps aux | grep postgres"
             try:
-                res = check_output(cmd,shell=True).decode()
+                res = check_output(cmd, shell=True).decode()
                 return 'postgres' in res and dbfarm in res
             except CalledProcessError as e:
                 logger.info('postgres is not running')
@@ -724,44 +778,50 @@ class PostgresServer:
             return False
         return True
 
-def write_performance_results_csv(timestamp):
+
+def write_performance_results_csv(dir, timestamp):
     monet_array = results['monet']
     psql_array = results['psql']
-    with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
+    with open(f'{dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
               f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv', 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
         writer.writerow(results_header)
-        line_count = min(len(monet_array),len(monet_array))
+        line_count = min(len(monet_array), len(monet_array))
         for i in range(line_count):
             try:
                 monet_result = monet_array[i]
                 psql_result = psql_array[i]
-                #When server_time is not available, leave the column as an empty string
+                # When server_time is not available, leave the column as an empty string
                 if monet_result["server_time"] < 0:
                     monet_result["server_time"] = ""
                 if psql_result["server_time"] < 0:
                     psql_result["server_time"] = ""
-                writer.writerow([f'{monet_result["scale"]}',f'{monet_result["operation"]}',
-                                f'{monet_result["server_time"]}',f'{round(monet_result["client_time"],3)}',
-                                f'{psql_result["server_time"]}',f'{round(psql_result["client_time"],3)}'])
+                writer.writerow([f'{monet_result["scale"]}', f'{monet_result["operation"]}',
+                                 f'{monet_result["server_time"]}', f'{round(monet_result["client_time"],3)}',
+                                 f'{psql_result["server_time"]}', f'{round(psql_result["client_time"],3)}'])
             except IndexError as msg:
                 logger.exception(msg)
                 return
 
-def write_performance_results_metadata(timestamp, monet_handler, psql_handler):
-    with open(f'{os.getcwd()}/results/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
+
+def write_performance_results_metadata(dir, timestamp, monet_handler, psql_handler):
+    with open(f'{dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
               f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
         f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
         f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
-        f.write(f"Postgres server version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n")
+        f.write(
+            f"Postgres server version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n")
         f.write(f"psycopg2 client version {psycopg2.__version__}\n\n")
+        f.write(f"Distance is calculated with the sphere model\n\n")
         f.write("Number of records for Scale Factors:\n")
-        for i in range(0,len(scales)):
+        for i in range(0, len(scales)):
             f.write(f"SF {scales[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
 
-def write_performance_results(monet_handler, psql_handler, time):
-    write_performance_results_csv(time)
-    write_performance_results_metadata(time, monet_handler, psql_handler)
+
+def write_performance_results(dir, monet_handler, psql_handler, time):
+    write_performance_results_csv(dir, time)
+    write_performance_results_metadata(dir, time, monet_handler, psql_handler)
+
 
 def configure_logger():
     if args.debug:
@@ -773,88 +833,93 @@ def configure_logger():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-def create_query_results_dirs(time):
-    output_directory = f'{os.getcwd()}/out/{time.strftime("%d")}-{time.strftime("%m")}_' \
+
+def create_query_results_dirs(time, export):
+    output_directory = f'{os.getcwd()}/results/{time.strftime("%d")}-{time.strftime("%m")}_' \
                        f'{time.strftime("%H")}:{time.strftime("%M")}'
     try:
         os.mkdir(output_directory)
-        os.mkdir(f"{output_directory}/monet/")
-        os.mkdir(f"{output_directory}/psql/")
-        os.mkdir(f"{output_directory}/comparison/")
+        if export:
+            os.mkdir(f"{output_directory}/query_monet/")
+            os.mkdir(f"{output_directory}/query_psql/")
+            os.mkdir(f"{output_directory}/query_comparison/")
     except FileExistsError as msg:
         logger.exception(msg)
         return None
     else:
         return output_directory
 
-def compare_results_other(results_directory, filename):
-    with open(f'{results_directory}/monet/{filename}', 'r') as monet_file, open(f'{results_directory}/psql/{filename}','r') as psql_file, \
-            open(f'{results_directory}/comparison/{filename[:-4]}.txt', 'w') as compare_file:
-        m_len = sum(1 for line in monet_file)
-        p_len = sum(1 for line in psql_file)
-        if m_len != p_len:
-            compare_file.write(f"Different lenghts:\nMonetDB lenght: {m_len}\nPostgreSQL lenght: {p_len}\n")
-        else:
-            compare_file.write("Same results.")
-     
 
+def compare_results_bool(monet_reader, psql_reader, compare_writer):
+    compare_writer.writerow(comparison_header_bool)
+    for m_row, p_row in zip(monet_reader, psql_reader):
+        if m_row[len(m_row) - 1] == "true":
+            m_value = True
+        elif m_row[len(m_row) - 1] == "false":
+            m_value = False
+        if p_row[len(p_row) - 1] == "t":
+            p_value = True
+        elif p_row[len(p_row) - 1] == "f":
+            p_value = False
+        compare_writer.writerow([m_value, p_value, m_value == p_value])
 
-def compare_results_float(results_directory, filename):
+def compare_results_float(monet_reader, psql_reader, compare_writer, compare_summary):
     csv.field_size_limit(sys.maxsize)
-    with open(f'{results_directory}/monet/{filename}', 'r') as monet_file, open(f'{results_directory}/psql/{filename}','r') as psql_file, \
-        open(f'{results_directory}/comparison/{filename}', 'w') as compare_file, open(f'{results_directory}/comparison/{filename}_summary.txt', 'w') as compare_summary:
-        monet_reader = csv.reader(monet_file, delimiter=',')
-        psql_reader = csv.reader(psql_file, delimiter=',')
-        compare_writer = csv.writer(compare_file, delimiter=',')
-        compare_writer.writerow(comparison_header)
+    compare_writer.writerow(comparison_header_float)
+    row_compare = []
+    absolute_result_array = []
+    relative_result_array = []
+    for m_row, p_row in zip(monet_reader, psql_reader):
+        # As a convention, let's always use the last column as the processing results column
+        m_value = m_row[len(m_row) - 1]
+        p_value = p_row[len(p_row) - 1]
+        m_float = float(m_value)
+        p_float = float(p_value)
+        dif = abs(m_float - p_float)
+        absolute_result_array.append(dif)
+        row_compare.append("{:.5f}".format(m_float))
+        row_compare.append("{:.5f}".format(p_float))
+        row_compare.append("{:.5f}".format(dif))
+        if p_float != 0:
+            relative_dif = (dif / abs(p_float)) * 100
+            row_compare.append("{:.4f}%".format(relative_dif))
+            relative_result_array.append(relative_dif)
+        elif m_float == 0:
+            relative_result_array.append(0)
+            row_compare.append("{:.4f}%".format(0))
+        else:
+            # If the Postgres value is 0 and Monet value is not 0, we can't calculate the relative difference
+            row_compare.append("NaN")
+        compare_writer.writerow(row_compare)
         row_compare = []
-        absolute_result_array = []
-        relative_result_array = []
-        for m_row, p_row in zip(monet_reader, psql_reader):
-            # As a convention, let's always use the last column as the processing results column
-            m_value = m_row[len(m_row) - 1]
-            p_value = p_row[len(p_row) - 1]
-            m_float = float(m_value)
-            p_float = float(p_value)
-            dif = abs(m_float - p_float)
-            absolute_result_array.append(dif)
-            row_compare.append("{:.5f}".format(m_float))
-            row_compare.append("{:.5f}".format(p_float))
-            row_compare.append("{:.5f}".format(dif))
-            if p_float != 0:
-                relative_dif = (dif / abs(p_float)) * 100
-                row_compare.append("{:.2f}%".format(relative_dif))
-                relative_result_array.append(relative_dif)
-            elif m_float == 0:
-                relative_result_array.append(0)
-                row_compare.append("0.00%")
-            else:
-                # TODO: What is the relative difference when postgres time (denominator) is 0?
-                relative_result_array.append(100)
-                row_compare.append("100.00%")
-            compare_writer.writerow(row_compare)
-            row_compare = []
-        # Get avg, max and min from comparisons
-        compare_summary.write(f"Absolute Avg: {'{:.5f}'.format(sum(absolute_result_array)/len(absolute_result_array))}\n")
-        compare_summary.write(f"Absolute Min: {'{:.5f}'.format(min(absolute_result_array))}\n")
-        compare_summary.write(f"Absolute Max: {'{:.5f}'.format(max(absolute_result_array))}\n")
-        compare_summary.write(f"Relative Avg: {'{:.2f}%'.format(sum(relative_result_array)/len(relative_result_array))}\n")
-        compare_summary.write(f"Relative Min: {'{:.2f}%'.format(min(relative_result_array))}\n")
-        compare_summary.write(f"Relative Max: {'{:.2f}%'.format(max(relative_result_array))}\n")
+    # Get avg, max and min from comparisons
+    compare_summary.write(f"Absolute Avg: {'{:.5f}'.format(sum(absolute_result_array)/len(absolute_result_array))}\n")
+    compare_summary.write(f"Absolute Min: {'{:.5f}'.format(min(absolute_result_array))}\n")
+    compare_summary.write(f"Absolute Max: {'{:.5f}'.format(max(absolute_result_array))}\n")
+    compare_summary.write(f"Relative Avg: {'{:.4f}%'.format(sum(relative_result_array)/len(relative_result_array))}\n")
+    compare_summary.write(f"Relative Min: {'{:.4f}%'.format(min(relative_result_array))}\n")
+    compare_summary.write(f"Relative Max: {'{:.4f}%'.format(max(relative_result_array))}\n")
+
 
 def compare_query_results(output_dir):
     logger.info("Comparing query results")
-    directory_monet = f'{output_dir}/monet/'
-    directory_psql = f'{output_dir}/psql/'
+    directory_monet = f'{output_dir}/query_monet/'
+    directory_psql = f'{output_dir}/query_psql/'
     i = 0
     for file in sorted(os.listdir(directory_monet)):
-        if os.path.isfile(directory_psql+file):
-            logger.info(f"Comparing query result file {file}")
-            if query_type_float[i]:
-                compare_results_float(output_dir,file)
-            else:
-                compare_results_other(output_dir,file)
-            i+=1
+        if os.path.isfile(directory_psql + file) and queries[i]["comparison"] is not None:
+            logger.debug(f"Comparing query result file {file}")
+            with open(f'{directory_monet}/{file}', 'r') as monet_file, open(f'{directory_psql}/{file}','r') as psql_file, \
+                    open(f'{output_dir}/query_comparison/{file}', 'w') as compare_file:
+                monet_reader = csv.reader(monet_file, delimiter=',')
+                psql_reader = csv.reader(psql_file, delimiter=',')
+                compare_writer = csv.writer(compare_file, delimiter=',')
+                if queries[i]["comparison"] == "float":
+                    with open(f'{output_dir}/query_comparison/{file[:-4]}_summary.txt', 'w') as compare_summary:
+                        compare_results_float(monet_reader, psql_reader, compare_writer, compare_summary)
+                elif queries[i]["comparison"] == "bool":
+                    compare_results_bool(monet_reader, psql_reader, compare_writer)
+        i += 1
 
 
 if __name__ == "__main__":
@@ -862,36 +927,28 @@ if __name__ == "__main__":
     data_dir = args.data
     scales = args.scale
 
-    #Configure logger
+    # Configure logger
     logger = logging.getLogger(__name__)
     configure_logger()
 
-    #If the user specified a dbfarm for MDB, start the server from the script
+    # If the user specified a dbfarm for MDB, start the server from the script
     if args.dbfarm_monet:
-        m_server = MonetServer(args.dbfarm_monet,args.database)
+        m_server = MonetServer(args.dbfarm_monet, args.database)
     # If the user specified a dbfarm for PSQL, start the server from the script
     if args.dbfarm_psql:
         p_server = PostgresServer(args.dbfarm_psql, args.database)
 
     now = datetime.datetime.now()
-    if args.export:
-        results_dir = create_query_results_dirs(now)
-        if results_dir is None:
-            if args.dbfarm_monet:
-                m_server.stop_server(args.drop)
-            if args.dbfarm_psql:
-                p_server.stop_server(args.drop)
-    else:
-        results_dir = None
+    results_dir = create_query_results_dirs(now,args.export)
     m_handler = MonetHandler(results_dir)
     p_handler = PostgresHandler(results_dir)
     m_handler.benchmark()
     p_handler.benchmark()
-    write_performance_results(m_handler, p_handler, now)
+    write_performance_results(results_dir,m_handler, p_handler, now)
     if args.export:
         compare_query_results(results_dir)
 
-    #Stopping servers, if they were started from the script
+    # Stopping servers, if they were started from the script
     if args.dbfarm_monet:
         m_server.stop_server(args.drop)
     if args.dbfarm_psql:

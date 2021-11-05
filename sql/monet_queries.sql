@@ -40,18 +40,21 @@ CREATE TABLE close_trajectories AS
          st_distancegeographic(q1.geom,q2.geom) as distance
   FROM trajectory as q1
   JOIN trajectory as q2
-  ON q1.mmsi <> q2.mmsi AND st_dwithingeographic(q1.geom,q2.geom,5000);
+  ON q1.mmsi < q2.mmsi AND st_dwithingeographic(q1.geom,q2.geom,5000);
 -- Query 7: FAO areas intersected by ship trajectories (Line-Polygon DIntersects)
 CREATE TABLE fao_trajectory_intersect AS
-  SELECT mmsi, fid as fao_id
+  SELECT mmsi, fid as fao_id,
+         st_intersectsgeographic(q1.geom,q2.geom) as intersects
   FROM trajectory as q1
   JOIN fao_areas as q2
-  ON st_intersectsgeographic(q1.geom,q2.geom)
+  ON TRUE
   AND q2.f_division IN ('27.8.a','27.8.b','27.8.d','27.7.d','27.7.e','27.7.h','27.7.f','27.7.g','27.7.j');
 -- Query 8: FAO areas intersected by fishing interdiction area (Polygon-Polygon DIntersects)
 CREATE TABLE fao_fishing_intersect AS
-  SELECT q1.fid as fishing_id, q2.fid as fao_id
-  FROM fishing_interdiction as q1
+  SELECT q1.gid as fishing_id, q2.fid as fao_id,
+         st_intersectsgeographic(q1.geom,q2.geom) as intersects
+  FROM fishing_areas as q1
   JOIN fao_areas as q2
-  ON st_intersectsgeographic(q1.geom,q2.geom)
-  AND q2.f_division IN ('27.8.a','27.8.b','27.8.d','27.7.d','27.7.e','27.7.h','27.7.f','27.7.g','27.7.j');
+  ON TRUE
+  AND q2.f_division IN ('27.8.a','27.8.b','27.8.d','27.7.d','27.7.e','27.7.h','27.7.f','27.7.g','27.7.j')
+  AND q1.gid < 10;
