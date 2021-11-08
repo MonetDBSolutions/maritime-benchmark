@@ -40,7 +40,7 @@ CREATE TABLE close_trajectories AS
          st_distance(q1.geom::Geography,q2.geom::Geography,false) as distance
   FROM trajectory as q1
   JOIN trajectory as q2
-  ON q1.mmsi < q2.mmsi AND st_dwithin(q1.geom::Geography,q2.geom::Geography,5000,false);
+  ON q1.mmsi < q2.mmsi AND st_distance(q1.geom::Geography,q2.geom::Geography,false) <= 5000;
 -- Query 7: FAO areas intersected by ship trajectories (Line-Polygon DIntersects)
 CREATE TABLE fao_trajectory_intersect AS
   SELECT mmsi, fid::INTEGER as fao_id,

@@ -169,6 +169,16 @@ class DatabaseHandler:
         # Used to store record number for Scale Factors (used in performance results metadata)
         self.record_number = []
         self.results_dir = f'{result_dir}/query_{system}'
+        self.conn = self.connect_database()
+        if not self.conn:
+            logger.error(f'Could not access the database {args.database}')
+            sys.exit()
+        logger.info(f'{self.system.upper()}: Connected to database {args.database}')
+        self.prepare_connection(self.conn)
+        self.cur = self.conn.cursor()
+
+    def close(self):
+        self.conn.close()
 
     @staticmethod
     def register_result(system, scale, operation, server_time, client_time):
@@ -229,29 +239,17 @@ class DatabaseHandler:
             return 0
         return 1
 
-    def benchmark(self):
-        conn = self.connect_database()
-        if not conn:
-            logger.error(f'Could not access the database {args.database}')
-            sys.exit()
-        logger.info(f'{self.system.upper()}: Connected to database {args.database}')
-        self.prepare_connection(conn)
-        cur = conn.cursor()
-        for scale in scales:
-            self.cur_scale = scale
-            logger.info(f'Benchmarking scale {self.cur_scale}')
-            self.create_schema(cur)
-            self.get_version(cur)
-            self.load_data(cur)
-            self.run_queries(cur)
-            if args.export:
-                self.export_query_tables(cur)
-            if args.drop:
-                self.drop_schema(cur)
-            elif len(scales) > 1:
-                logger.info("Dropping schemas is turned off, so multiple scale factors are not allowed\nWrapping up.")
-                break
-        conn.close()
+    def benchmark(self, cur_scale):
+        self.cur_scale = cur_scale
+        logger.info(f'Benchmarking scale {self.cur_scale}')
+        self.create_schema(self.cur)
+        self.get_version(self.cur)
+        self.load_data(self.cur)
+        self.run_queries(self.cur)
+        if args.export:
+            self.export_query_tables(self.cur)
+        if args.drop:
+            self.drop_schema(self.cur)
 
     def connect_database(self):
         pass
@@ -334,13 +332,15 @@ class DatabaseHandler:
                 continue
             start = timer()
             if not self.execute_query(cur, q):
-                self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id]["q_name"]}', -1, -1)
+                self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id-1]["q_name"]}', -1,
+                                     -1)
                 continue
             client_time = timer() - start
             server_time = self.get_server_query_time(cur)
             total_time += client_time
 
-            self.register_result(self.system, self.cur_scale, f'Q{query_id}', server_time, client_time)
+            self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id-1]["q_name"]}',
+                                 server_time, client_time)
             logger.debug("CLIENT: Executed query %s in %6.3f seconds" % (query_id, client_time))
             if server_time > 0:
                 logger.debug("SERVER: Executed query %s in %6.3f seconds" % (query_id, server_time))
@@ -362,7 +362,6 @@ class DatabaseHandler:
                 q = q.replace("%SF%", f"_{self.cur_scale}")
             else:
                 q = q.replace("%SF%", "")
-            logger.debug(f"Executing export query '{q}'")
             if not self.execute_query(cur, q):
                 continue
 
@@ -779,13 +778,17 @@ class PostgresServer:
         return True
 
 
-def write_performance_results_csv(dir, timestamp):
+def write_performance_results(result_dir, timestamp):
     monet_array = results['monet']
     psql_array = results['psql']
-    with open(f'{dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
-              f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv', 'w', encoding='UTF8') as f:
+    results_file = f'{result_dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_' \
+                   f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv'
+    write_header = not os.path.isfile(results_file)
+
+    with open(results_file, 'a', encoding='UTF8') as f:
         writer = csv.writer(f)
-        writer.writerow(results_header)
+        if write_header:
+            writer.writerow(results_header)
         line_count = min(len(monet_array), len(monet_array))
         for i in range(line_count):
             try:
@@ -801,11 +804,13 @@ def write_performance_results_csv(dir, timestamp):
                                  f'{psql_result["server_time"]}', f'{round(psql_result["client_time"],3)}'])
             except IndexError as msg:
                 logger.exception(msg)
-                return
+                break
+    results["monet"] = []
+    results["psql"] = []
 
 
-def write_performance_results_metadata(dir, timestamp, monet_handler, psql_handler):
-    with open(f'{dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
+def write_performance_results_metadata(result_dir, timestamp, monet_handler, psql_handler):
+    with open(f'{result_dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
               f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
         f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
         f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
@@ -816,11 +821,6 @@ def write_performance_results_metadata(dir, timestamp, monet_handler, psql_handl
         f.write("Number of records for Scale Factors:\n")
         for i in range(0, len(scales)):
             f.write(f"SF {scales[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
-
-
-def write_performance_results(dir, monet_handler, psql_handler, time):
-    write_performance_results_csv(dir, time)
-    write_performance_results_metadata(dir, time, monet_handler, psql_handler)
 
 
 def configure_logger():
@@ -863,6 +863,7 @@ def compare_results_bool(monet_reader, psql_reader, compare_writer):
             p_value = False
         compare_writer.writerow([m_value, p_value, m_value == p_value])
 
+
 def compare_results_float(monet_reader, psql_reader, compare_writer, compare_summary):
     csv.field_size_limit(sys.maxsize)
     compare_writer.writerow(comparison_header_float)
@@ -901,25 +902,26 @@ def compare_results_float(monet_reader, psql_reader, compare_writer, compare_sum
     compare_summary.write(f"Relative Max: {'{:.4f}%'.format(max(relative_result_array))}\n")
 
 
-def compare_query_results(output_dir):
+def compare_query_results(output_dir, cur_scale):
     logger.info("Comparing query results")
     directory_monet = f'{output_dir}/query_monet/'
     directory_psql = f'{output_dir}/query_psql/'
     i = 0
     for file in sorted(os.listdir(directory_monet)):
-        if os.path.isfile(directory_psql + file) and queries[i]["comparison"] is not None:
-            logger.debug(f"Comparing query result file {file}")
-            with open(f'{directory_monet}/{file}', 'r') as monet_file, open(f'{directory_psql}/{file}','r') as psql_file, \
-                    open(f'{output_dir}/query_comparison/{file}', 'w') as compare_file:
-                monet_reader = csv.reader(monet_file, delimiter=',')
-                psql_reader = csv.reader(psql_file, delimiter=',')
-                compare_writer = csv.writer(compare_file, delimiter=',')
-                if queries[i]["comparison"] == "float":
-                    with open(f'{output_dir}/query_comparison/{file[:-4]}_summary.txt', 'w') as compare_summary:
-                        compare_results_float(monet_reader, psql_reader, compare_writer, compare_summary)
-                elif queries[i]["comparison"] == "bool":
-                    compare_results_bool(monet_reader, psql_reader, compare_writer)
-        i += 1
+        if file.endswith(f"{cur_scale}.csv"):
+            if os.path.isfile(directory_psql + file) and queries[i]["comparison"] is not None:
+                logger.debug(f"Comparing query result file {file}")
+                with open(f'{directory_monet}/{file}', 'r') as monet_file, open(f'{directory_psql}/{file}','r') as psql_file, \
+                        open(f'{output_dir}/query_comparison/{file}', 'w') as compare_file:
+                    monet_reader = csv.reader(monet_file, delimiter=',')
+                    psql_reader = csv.reader(psql_file, delimiter=',')
+                    compare_writer = csv.writer(compare_file, delimiter=',')
+                    if queries[i]["comparison"] == "float":
+                        with open(f'{output_dir}/query_comparison/{file[:-4]}_summary.txt', 'w') as compare_summary:
+                            compare_results_float(monet_reader, psql_reader, compare_writer, compare_summary)
+                    elif queries[i]["comparison"] == "bool":
+                        compare_results_bool(monet_reader, psql_reader, compare_writer)
+            i += 1
 
 
 if __name__ == "__main__":
@@ -938,15 +940,29 @@ if __name__ == "__main__":
     if args.dbfarm_psql:
         p_server = PostgresServer(args.dbfarm_psql, args.database)
 
-    now = datetime.datetime.now()
-    results_dir = create_query_results_dirs(now,args.export)
-    m_handler = MonetHandler(results_dir)
-    p_handler = PostgresHandler(results_dir)
-    m_handler.benchmark()
-    p_handler.benchmark()
-    write_performance_results(results_dir,m_handler, p_handler, now)
-    if args.export:
-        compare_query_results(results_dir)
+    m_handler = None
+    p_handler = None
+
+    try:
+        now = datetime.datetime.now()
+        results_dir = create_query_results_dirs(now, args.export)
+        m_handler = MonetHandler(results_dir)
+        p_handler = PostgresHandler(results_dir)
+        for scale in scales:
+            m_handler.benchmark(scale)
+            p_handler.benchmark(scale)
+            write_performance_results(results_dir, now)
+            if args.export:
+                compare_query_results(results_dir, scale)
+        write_performance_results_metadata(results_dir, now, m_handler, p_handler)
+    except Exception as msg:
+        logger.exception(msg)
+
+    # Disconnecting clients
+    if m_handler:
+        m_handler.close()
+    if p_handler:
+        p_handler.close()
 
     # Stopping servers, if they were started from the script
     if args.dbfarm_monet:
