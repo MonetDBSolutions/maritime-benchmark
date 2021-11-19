@@ -38,13 +38,10 @@ parser.add_argument('--system', type=str, help='Database system to benchmark (de
 
 # Switch (bool) arguments
 parser.add_argument('--debug', help='Turn on debugging log (default is off)', dest='debug', action='store_true')
-parser.set_defaults(debug=False)
 parser.add_argument('--export', help='Turn on exporting query tables after execution (default is off)', dest='export',
                     action='store_true')
-parser.set_defaults(export=False)
 parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop',
                     action='store_false')
-parser.set_defaults(drop=True)
 
 load_tables = {
     "csv_tables":
