@@ -158,8 +158,7 @@ WITH (
 COPY ais_data.dynamic_ships(
   mmsi,status,turn,speed,course,heading,lon,lat,ts
   )
-  --FROM '/path/to/data/[P1] AIS Data/nari_dynamic.csv'
-  FROM '/Users/bernardo/Monet/VesselAI/Prototype/Datasets/Maritime Integrated Dataset/Navigation/[P1] AIS Data/nari_dynamic.csv'
+  FROM '/path/to/data/[P1] AIS Data/nari_dynamic.csv'
 delimiter ',' csv HEADER;
 
 ALTER TABLE ais_data.dynamic_ships ADD COLUMN geom geometry(Point,4326);
@@ -167,3 +166,4 @@ UPDATE ais_data.dynamic_ships SET geom = ST_SetSRID(ST_MakePoint(lon, lat),4326)
 
 ALTER TABLE ais_data.dynamic_ships ADD COLUMN t timestamp without time zone;
 UPDATE ais_data.dynamic_ships SET t = to_timestamp(ts);
+

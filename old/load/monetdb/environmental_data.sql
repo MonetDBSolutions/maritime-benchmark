@@ -5,12 +5,12 @@
 DROP TABLE IF EXISTS environment_data.observations;
 DROP TABLE IF EXISTS environment_data.wind_direction;
 DROP TABLE IF EXISTS environment_data.weather_station;
-DROP TABLE IF EXISTS  environment_data.oc_october;
-DROP TABLE IF EXISTS  environment_data.oc_november;
-DROP TABLE IF EXISTS  environment_data.oc_december;
-DROP TABLE IF EXISTS  environment_data.oc_january;
-DROP TABLE IF EXISTS  environment_data.oc_february;
-DROP TABLE IF EXISTS  environment_data.oc_march;
+DROP TABLE IF EXISTS environment_data.oc_october;
+DROP TABLE IF EXISTS environment_data.oc_november;
+DROP TABLE IF EXISTS environment_data.oc_december;
+DROP TABLE IF EXISTS environment_data.oc_january;
+DROP TABLE IF EXISTS environment_data.oc_february;
+DROP TABLE IF EXISTS environment_data.oc_march;
 DROP SCHEMA IF EXISTS environment_data;
 
 CREATE SCHEMA IF NOT EXISTS environment_data;
@@ -161,7 +161,7 @@ CREATE TABLE environment_data.wind_direction
 );
 
 COPY OFFSET 2 INTO environment_data.wind_direction(id_wind_direction, dd_num, dd_plaintext, dd_shorttext)
-FROM '/path/to/data/[E2] Weather Conditions/table_windDirection.csv'
+FROM '/path/to/data/[E2] Weather Conditions/table_winddirection.csv'
 DELIMITERS ',','\n','"';
 
 CREATE TABLE environment_data.weather_station
@@ -175,7 +175,7 @@ CREATE TABLE environment_data.weather_station
 );
 
 COPY OFFSET 2 INTO environment_data.weather_station(id_station, station_name, latitude, longitude, elevation)
-FROM '/path/to/data/[E2] Weather Conditions/table_weatherStation.csv'
+FROM '/path/to/data/[E2] Weather Conditions/table_weatherstation.csv'
 DELIMITERS ',';
 
 #GEOM COLUMN
@@ -215,5 +215,6 @@ CREATE TABLE environment_data.observations
  );
 
 COPY OFFSET 2 INTO environment_data.observations (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
-FROM '/path/to/data/[E2] Weather Conditions/table_wheatherObservation.csv' (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
+FROM '/path/to/data/[E2] Weather Conditions/table_wheatherobservation.csv' (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
 DELIMITERS ',';
+

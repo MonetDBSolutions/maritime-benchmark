@@ -191,7 +191,7 @@ WITH (
 
 COPY wheather_conditions.wind_direction(
   id_wind_direction, dd_num, dd_plaintext, dd_shorttext)
-  FROM '/path/to/data/[E2] Weather Conditions/table_windDirection.csv'
+  FROM '/path/to/data/[E2] Weather Conditions/table_winddirection.csv'
 delimiter ',' csv header;
 
 CREATE TABLE wheather_conditions.weather_station
@@ -209,7 +209,7 @@ WITH (
 
 COPY wheather_conditions.weather_station(
   id_station, station_name, latitude, longitude, elevation)
-  FROM '/path/to/data/[E2] Weather Conditions/table_weatherStation.csv'
+  FROM '/path/to/data/[E2] Weather Conditions/table_weatherstation.csv'
 delimiter ',' csv header;
 
 ALTER TABLE wheather_conditions.weather_station ADD COLUMN geom geometry(Geometry,4326);
@@ -259,7 +259,7 @@ WITH (
 
 COPY wheather_conditions.observations(
   id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
-  FROM '/path/to/data/[E2] Weather Conditions/table_wheatherObservation.csv'
+  FROM '/path/to/data/[E2] Weather Conditions/table_wheatherobservation.csv'
 delimiter ',' csv header;
 
 -- -------------------------------------
@@ -628,3 +628,4 @@ COPY natura2000.sites(
   "country_code","sitecode","sitename","sitetype","date_compilation","date_update","date_spa","spa_legal_reference","date_prop_sci","date_conf_sci","date_sac","sac_legal_reference","explanations","areaha","lengthkm","marine_area_percentage","longitude","latitude","documentation","quality","designation","othercharact")
   FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/NATURA2000SITES.csv'
 delimiter ',' csv header;
+

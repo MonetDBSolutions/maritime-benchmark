@@ -29,7 +29,7 @@ WITH (
 
 COPY ais_status_codes_types.aton(
   nature, id_code, definition)
-  FROM '/path/to/data/[P1] AIS Status, Codes and Types/ATON.csv'
+  FROM '/path/to/data/[P1] AIS Status, Codes and Types/aton.csv'
 delimiter ';' csv header;
 
   
@@ -45,7 +45,7 @@ WITH (
 
 COPY ais_status_codes_types.mmsi_country_codes(
   country_code, country)
-  FROM '/path/to/data/[P1] AIS Status, Codes and Types/MMSI Country Codes.csv'
+  FROM '/path/to/data/[P1] AIS Status, Codes and Types/mmsi_country_codes.csv'
 delimiter ',' csv ;
 
 
@@ -62,7 +62,7 @@ WITH (
 
 COPY ais_status_codes_types.navigational_status(
   id_status, definition)
-  FROM '/path/to/data/[P1] AIS Status, Codes and Types/Navigational Status.csv'
+  FROM '/path/to/data/[P1] AIS Status, Codes and Types/navigational_status.csv'
 delimiter ';' csv;
 
 
@@ -83,7 +83,7 @@ WITH (
 COPY ais_status_codes_types.ship_types(
   id_shiptype,shiptype_min,shiptype_max,type_name,ais_type_summary
   )
-  FROM '/path/to/data/[P1] AIS Status, Codes and Types/Ship Types List.csv'
+  FROM '/path/to/data/[P1] AIS Status, Codes and Types/ship_types_list.csv'
 delimiter ',' csv header;
 
   
@@ -106,7 +106,7 @@ WITH (
 COPY ais_status_codes_types.ship_types_detailed(
   id_detailedtype,detailed_type,id_shiptype
   )
-  FROM '/path/to/data/[P1] AIS Status, Codes and Types/Ship Types Detailed List.csv'
+  FROM '/path/to/data/[P1] AIS Status, Codes and Types/ship_types_detailed_list.csv'
 delimiter ',' csv header;
 
 -- -------------------------------------
@@ -223,11 +223,11 @@ WITH (
   OIDS=FALSE
 );
 
-COPY vesselregister.eu_fishingvessels("﻿countrycode",
+COPY vesselregister.eu_fishingvessels("countrycode",
   cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,
   gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,
   decisiondate, decisionsegcode, constructionyear, constructionplace)
-FROM '/path/to/data/[C6] EU Fishing Vessels/EuropeanVesselRegister.csv' 
+FROM '/path/to/data/[C6] EU Fishing Vessels/europeanvesselregister.csv' 
 delimiter ';' csv header;
   
 CREATE TABLE vesselregister.eu_eventcode_details
@@ -259,3 +259,4 @@ WITH (
 COPY vesselregister.eu_geartypecode_details(gearmaincode, detail1, detail2)
 FROM '/path/to/data/[C6] EU Fishing Vessels/table_gear_type_code.csv' 
 delimiter ',' QUOTE '"' csv header;
+
