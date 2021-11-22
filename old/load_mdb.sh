@@ -14,3 +14,4 @@ for s in ${sql_load[@]}; do
 	echo "Loading $s"
 	mclient -d $db_name $PWD/load/monetdb/$s
 done
+
