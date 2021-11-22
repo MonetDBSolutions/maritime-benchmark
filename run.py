@@ -274,6 +274,7 @@ class DatabaseHandler:
         total_time = self.load_csv(cur)
         total_time += self.load_shp(cur)
         logger.info("All loads in %6.3f seconds" % total_time)
+        self.register_result(self.system, self.cur_scale, "All loads", -1, total_time)
 
     def load_csv(self, cur):
         total_time = 0
@@ -334,6 +335,7 @@ class DatabaseHandler:
             if not self.execute_query(cur, q):
                 self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id-1]["q_name"]}', -1,
                                      -1)
+                query_id += 1
                 continue
             client_time = timer() - start
             server_time = self.get_server_query_time(cur)
@@ -752,7 +754,7 @@ class PostgresServer:
             logger.error('dbfarm %s does NOT exists' % dbfarm)
 
     def db_create(self, dbname='marine', prefix='') -> bool:
-        cmd = [os.path.join(prefix, 'createdb'), str(dbname)]
+        cmd = [os.path.join(prefix, 'createdb'), '-h', 'localhost', str(dbname)]
         try:
             run(cmd, check=True)
             logger.info('created database %s' % dbname)
@@ -765,7 +767,7 @@ class PostgresServer:
         return True
 
     def db_destroy(self, dbname='marine', prefix='') -> bool:
-        cmd = [os.path.join(prefix, 'dropdb'), str(dbname)]
+        cmd = [os.path.join(prefix, 'dropdb'), '-h', 'localhost', str(dbname)]
         try:
             run(cmd, check=True)
             logger.info('destroyed database %s' % dbname)
