@@ -25,26 +25,26 @@ def main():
     rename_downloaded_files(builtin_dir, dir)
 
     print(f"replacing /path/to/data with actual pwd: {pwd}/data/")
-    change_pwd_in_files(f"{pwd}/load/monetdb", pwd)
-    change_pwd_in_files(f"{pwd}/load/postgres", pwd)
-    change_pwd_in_file(f"{pwd}/load_psql.sh")
+    change_pwd_in_files(f"{pwd}/load/monetdb", dir)
+    change_pwd_in_files(f"{pwd}/load/postgres", dir)
+    change_pwd_in_file(f"{pwd}/load_psql.sh", dir)
 
 
 # Change all instances of /path/to/data
 # with the relevant path.
-def change_pwd_in_files(path, pwd):
+def change_pwd_in_files(path, dir):
     files = os.listdir(path)
-    
-    for name in files:
-        change_pwd_in_file(f"{path}/{name}")
 
-def change_pwd_in_file(filename):
-    TARGET = '/path/to/data/'
+    for name in files:
+        change_pwd_in_file(f"{path}/{name}", dir)
+
+def change_pwd_in_file(filename, src_dir):
+    TARGET = '/path/to/data'
 
     with fileinput.input(filename, inplace=True) as f:
             for line in f:
                 if TARGET in line:
-                    line = line.replace(TARGET, filename)
+                    line = line.replace(TARGET, src_dir)
 
                 print(line, end='')
 
@@ -55,8 +55,8 @@ def rename_downloaded_files(src, dest):
         for file in os.listdir(f"{src}/{dir}"):
             f = file.replace(' ', '_').lower()
             os.rename(f"{src}/{dir}/{file}", f"{src}/{dir}/{f}")
-    shutil.move(src, f"{dest}/{dir}")
-
+        shutil.move(f"{src}/{dir}", f"{dest}")
+    shutil.rmtree(src)
 
 def download_data(dir):
     HOME = "https://zenodo.org/record/1167595/files/"
