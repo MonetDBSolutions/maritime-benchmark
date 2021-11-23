@@ -48,7 +48,7 @@ load_tables = {
         [
             {
                 "tablename": "ais_dynamic",
-                "filename": "ais_dynamic",
+                "filename": "nari_dynamic",
                 "columns": "mmsi,status,turn,speed,course,heading,lon,lat,ts",
                 "timestamp": "ts",
                 "geom": "lon,lat",
@@ -59,32 +59,32 @@ load_tables = {
         [
             {
                 "tablename": "brittany_ports",
-                "filename": "brittany_ports.shp",
+                "filename": "port.shp",
                 "srid": "4326"
             },
             {
                 "tablename": "europe_maritime_boundaries",
-                "filename": "europe_maritime_borders.shp",
+                "filename": "MBEULSIV1.shp",
                 "srid": "4258"
             },
             {
                 "tablename": "europe_coastline",
-                "filename": "europe_coastline.shp",
+                "filename": "Europe Coastline.shp",
                 "srid": "3035"
             },
             {
                 "tablename": "fao_areas",
-                "filename": "fao.shp",
+                "filename": "FAO_AREAS.shp",
                 "srid": "4326"
             },
             {
                 "tablename": "wpi_ports",
-                "filename": "wpi.shp",
+                "filename": "WPI.shp",
                 "srid": "4326"
             },
             {
                 "tablename": "fishing_areas",
-                "filename": "fishing_areas_eu.shp",
+                "filename": "v_recode_fish_area_clean.shp",
                 "srid": "4326"
             },
             {
