@@ -834,7 +834,7 @@ def create_query_results_dirs(time, export):
     output_directory = f'{os.getcwd()}/results/{time.strftime(FILE_TIME_FORMAT)}'
 
     try:
-        os.mkdir(output_directory)
+        os.makedirs(output_directory)
         if export:
             os.mkdir(f"{output_directory}/query_monet/")
             os.mkdir(f"{output_directory}/query_psql/")
