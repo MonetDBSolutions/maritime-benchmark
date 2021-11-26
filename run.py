@@ -155,6 +155,7 @@ comparison_header_float = ['Monet_Result', 'PSQL_Result', 'Dif_Result', 'Relativ
 # CSV Header for result comparison (bool)
 comparison_header_bool = ['Monet_Result', 'PSQL_Result', 'Same_Result']
 
+FILE_TIME_FORMAT = "%d-%m_%H:%M"
 
 class DatabaseHandler:
     args = parser.parse_args()
@@ -778,8 +779,7 @@ class PostgresServer:
 def write_performance_results(result_dir, timestamp):
     monet_array = results['monet']
     psql_array = results['psql']
-    results_file = f'{result_dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_' \
-                   f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv'
+    results_file = f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}.csv'
     write_header = not os.path.isfile(results_file)
 
     with open(results_file, 'a', encoding='UTF8') as f:
@@ -807,8 +807,7 @@ def write_performance_results(result_dir, timestamp):
 
 
 def write_performance_results_metadata(result_dir, timestamp, monet_handler, psql_handler):
-    with open(f'{result_dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
-              f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
+    with open(f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}_meta.txt', 'w', encoding='UTF8') as f:
         f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
         f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
         f.write(
@@ -832,8 +831,8 @@ def configure_logger():
 
 
 def create_query_results_dirs(time, export):
-    output_directory = f'{os.getcwd()}/results/{time.strftime("%d")}-{time.strftime("%m")}_' \
-                       f'{time.strftime("%H")}:{time.strftime("%M")}'
+    output_directory = f'{os.getcwd()}/results/{time.strftime(FILE_TIME_FORMAT)}'
+
     try:
         os.mkdir(output_directory)
         if export:
