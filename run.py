@@ -197,7 +197,7 @@ class DatabaseHandler:
         except IOError as msg:
             logger.exception(msg)
             sys.exit()
-        return f.read().split(";")
+        return f.read().split(";")[:-1]
 
     # Create a new CSV file with a subset of data from an input CSV, given a scale factor (only < 1 SF allowed)
     # If the file already exists, use it. We currently don't delete the file after execution
@@ -351,8 +351,6 @@ class DatabaseHandler:
         logger.debug("Exporting data")
 
         for q in geo_export:
-            if not q:
-                continue
             # Replace placeholder %OUT% string with output directory
             q = q.replace("%OUT%", self.results_dir)
             # If there is a Scale Factor, replace placehold %SF% with current scale factor
