@@ -84,7 +84,7 @@ CREATE TABLE ais_data.static_ships(
 
 COPY OFFSET 2 INTO ais_data.static_ships(sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts) 
 FROM '/path/to/data/[P1] AIS Data/nari_static.csv' (sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts) 
-DELIMITERS ',','\n','"' NULL AS '';
+DELIMITERS ',','\n','"' NULL AS '' BEST EFFORT;
 
 #Timestamp Column
 ALTER TABLE ais_data.static_ships ADD COLUMN t Timestamp;
