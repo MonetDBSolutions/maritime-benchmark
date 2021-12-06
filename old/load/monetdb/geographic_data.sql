@@ -3,7 +3,7 @@
 #
 DROP TABLE IF EXISTS brittany_ports;
 --call shpload('/path/to/data/[C1] Ports of Brittany/brittany_ports.shp','sys','brittany_ports');
-call shpload('/path/to/data/[C1] Ports of Brittany/ports.shp','sys','brittany_ports');
+call shpload('/path/to/data/[C1] Ports of Brittany/port.shp','sys','brittany_ports');
 
 DROP TABLE IF EXISTS seadata_ports;
 call shpload('/path/to/data/[C1] SeaDataNet Port Index/seadatanet_fishing_ports.shp','sys','seadata_ports');
