@@ -38,20 +38,17 @@ parser.add_argument('--system', type=str, help='Database system to benchmark (de
 
 # Switch (bool) arguments
 parser.add_argument('--debug', help='Turn on debugging log (default is off)', dest='debug', action='store_true')
-parser.set_defaults(debug=False)
 parser.add_argument('--export', help='Turn on exporting query tables after execution (default is off)', dest='export',
                     action='store_true')
-parser.set_defaults(export=False)
 parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop',
                     action='store_false')
-parser.set_defaults(drop=True)
 
 load_tables = {
     "csv_tables":
         [
             {
                 "tablename": "ais_dynamic",
-                "filename": "ais_dynamic",
+                "filename": "nari_dynamic",
                 "columns": "mmsi,status,turn,speed,course,heading,lon,lat,ts",
                 "timestamp": "ts",
                 "geom": "lon,lat",
@@ -62,32 +59,32 @@ load_tables = {
         [
             {
                 "tablename": "brittany_ports",
-                "filename": "brittany_ports.shp",
+                "filename": "port.shp",
                 "srid": "4326"
             },
             {
                 "tablename": "europe_maritime_boundaries",
-                "filename": "europe_maritime_borders.shp",
+                "filename": "MBEULSIV1.shp",
                 "srid": "4258"
             },
             {
                 "tablename": "europe_coastline",
-                "filename": "europe_coastline.shp",
+                "filename": "Europe Coastline.shp",
                 "srid": "3035"
             },
             {
                 "tablename": "fao_areas",
-                "filename": "fao.shp",
+                "filename": "FAO_AREAS.shp",
                 "srid": "4326"
             },
             {
                 "tablename": "wpi_ports",
-                "filename": "wpi.shp",
+                "filename": "WPI.shp",
                 "srid": "4326"
             },
             {
                 "tablename": "fishing_areas",
-                "filename": "fishing_areas_eu.shp",
+                "filename": "v_recode_fish_area_clean.shp",
                 "srid": "4326"
             },
             {
@@ -158,6 +155,7 @@ comparison_header_float = ['Monet_Result', 'PSQL_Result', 'Dif_Result', 'Relativ
 # CSV Header for result comparison (bool)
 comparison_header_bool = ['Monet_Result', 'PSQL_Result', 'Same_Result']
 
+FILE_TIME_FORMAT = "%d-%m_%H:%M"
 
 class DatabaseHandler:
     args = parser.parse_args()
@@ -199,7 +197,7 @@ class DatabaseHandler:
         except IOError as msg:
             logger.exception(msg)
             sys.exit()
-        return f.read().split(";")
+        return f.read().split(";")[:-1]
 
     # Create a new CSV file with a subset of data from an input CSV, given a scale factor (only < 1 SF allowed)
     # If the file already exists, use it. We currently don't delete the file after execution
@@ -355,8 +353,6 @@ class DatabaseHandler:
         logger.debug("Exporting data")
 
         for q in geo_export:
-            if not q:
-                continue
             # Replace placeholder %OUT% string with output directory
             q = q.replace("%OUT%", self.results_dir)
             # If there is a Scale Factor, replace placehold %SF% with current scale factor
@@ -783,8 +779,7 @@ class PostgresServer:
 def write_performance_results(result_dir, timestamp):
     monet_array = results['monet']
     psql_array = results['psql']
-    results_file = f'{result_dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_' \
-                   f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}.csv'
+    results_file = f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}.csv'
     write_header = not os.path.isfile(results_file)
 
     with open(results_file, 'a', encoding='UTF8') as f:
@@ -812,8 +807,7 @@ def write_performance_results(result_dir, timestamp):
 
 
 def write_performance_results_metadata(result_dir, timestamp, monet_handler, psql_handler):
-    with open(f'{result_dir}/result_{timestamp.strftime("%d")}-{timestamp.strftime("%m")}_'
-              f'{timestamp.strftime("%H")}:{timestamp.strftime("%M")}_meta.txt', 'w', encoding='UTF8') as f:
+    with open(f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}_meta.txt', 'w', encoding='UTF8') as f:
         f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
         f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
         f.write(
@@ -831,16 +825,16 @@ def configure_logger():
     else:
         logger.setLevel(logging.INFO)
     handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
+    formatter = logging.Formatter('%(asctime)s[%(levelname)s][%(filename)s:%(lineno)d]%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
 
 def create_query_results_dirs(time, export):
-    output_directory = f'{os.getcwd()}/results/{time.strftime("%d")}-{time.strftime("%m")}_' \
-                       f'{time.strftime("%H")}:{time.strftime("%M")}'
+    output_directory = f'{os.getcwd()}/results/{time.strftime(FILE_TIME_FORMAT)}'
+
     try:
-        os.mkdir(output_directory)
+        os.makedirs(output_directory)
         if export:
             os.mkdir(f"{output_directory}/query_monet/")
             os.mkdir(f"{output_directory}/query_psql/")
