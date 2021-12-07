@@ -43,6 +43,8 @@ parser.add_argument('--export', help='Turn on exporting query tables after execu
 parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop',
                     action='store_false')
 
+args = parser.parse_args()
+
 load_tables = {
     "csv_tables":
         [
@@ -158,9 +160,7 @@ comparison_header_bool = ['Monet_Result', 'PSQL_Result', 'Same_Result']
 FILE_TIME_FORMAT = "%d-%m_%H:%M"
 
 class DatabaseHandler:
-    args = parser.parse_args()
-    data_dir = args.data
-
+    
     def __init__(self, system, result_dir):
         self.system = system
         self.cur_scale = None
@@ -204,15 +204,15 @@ class DatabaseHandler:
     def scale_csv(self, input_name, scale):
         if scale > 1:
             logger.warning("Scale factor must be less than 1, using original csv (SF 1)")
-            return f'{data_dir}/{input_name}.csv'
-        output_file_name = f'{data_dir}/{input_name}_SF_{scale}.csv'
+            return f'{args.data}/{input_name}.csv'
+        output_file_name = f'{args.data}/{input_name}_SF_{scale}.csv'
         if os.path.isfile(output_file_name):
             logger.debug(f"Found already existing csv {output_file_name}")
             # Register the number of records in Scale Factor
             with open(output_file_name) as f:
                 self.record_number.append(sum(1 for l in f))
             return output_file_name
-        input_file_name = f'{data_dir}/{input_name}.csv'
+        input_file_name = f'{args.data}/{input_name}.csv'
         with open(input_file_name, 'r') as input_file, open(output_file_name, 'w+') as output_file:
             try:
                 input_lines = input_file.readlines()
@@ -280,7 +280,7 @@ class DatabaseHandler:
             if "scalable" in csv_t and self.cur_scale != 0:
                 filename = self.scale_csv(csv_t["filename"], self.cur_scale)
             else:
-                filename = f'{data_dir}/{csv_t["filename"]}.csv'
+                filename = f'{args.data}/{csv_t["filename"]}.csv'
             start = timer()
             if not self.copy_into(cur, csv_t["tablename"], csv_t["columns"], filename):
                 continue
@@ -424,7 +424,7 @@ class MonetHandler(DatabaseHandler):
     def load_shp(self, cur):
         total_time = 0
         for csv_t in load_tables["shape_tables"]:
-            query = f'call shpload(\'{data_dir}/{csv_t["filename"]}\',\'bench_geo\',\'{csv_t["tablename"]}\');'
+            query = f'call shpload(\'{args.data}/{csv_t["filename"]}\',\'bench_geo\',\'{csv_t["tablename"]}\');'
             start = timer()
             try:
                 cur.execute(query)
@@ -496,7 +496,7 @@ class PostgresHandler(DatabaseHandler):
     def load_shp(self, cur):
         total_time = 0
         for csv_t in load_tables["shape_tables"]:
-            query = f'shp2pgsql -I -s {csv_t["srid"]} \'{data_dir}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
+            query = f'shp2pgsql -I -s {csv_t["srid"]} \'{args.data}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
             start = timer()
             try:
                 check_output(query, shell=True, stderr=STDOUT)
@@ -815,8 +815,8 @@ def write_performance_results_metadata(result_dir, timestamp, monet_handler, psq
         f.write(f"psycopg2 client version {psycopg2.__version__}\n\n")
         f.write(f"Distance is calculated with the sphere model\n\n")
         f.write("Number of records for Scale Factors:\n")
-        for i in range(0, len(scales)):
-            f.write(f"SF {scales[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
+        for i in range(0, len(args.scale)):
+            f.write(f"SF {args.scale[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
 
 
 def configure_logger():
@@ -921,10 +921,6 @@ def compare_query_results(output_dir, cur_scale):
 
 
 if __name__ == "__main__":
-    args = parser.parse_args()
-    data_dir = args.data
-    scales = args.scale
-
     # Configure logger
     logger = logging.getLogger(__name__)
     configure_logger()
@@ -944,7 +940,7 @@ if __name__ == "__main__":
         results_dir = create_query_results_dirs(now, args.export)
         m_handler = MonetHandler(results_dir)
         p_handler = PostgresHandler(results_dir)
-        for scale in scales:
+        for scale in args.scale:
             m_handler.benchmark(scale)
             p_handler.benchmark(scale)
             write_performance_results(results_dir, now)
