@@ -12,6 +12,6 @@ sql_load=("navigation_data.sql" "vessel_data.sql" "geographic_data.sql" "environ
 
 for s in ${sql_load[@]}; do
 	echo "Loading $s"
-	mclient -d $db_name $PWD/load/monetdb/$s
+	mclient -d $db_name $PWD/load_scripts/monetdb/$s
 done
 

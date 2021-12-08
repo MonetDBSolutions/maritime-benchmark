@@ -33,7 +33,7 @@ CREATE TABLE environment_data.oc_october
 );
 
 COPY OFFSET 2 INTO environment_data.oc_october (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/path/to/data/[E1] Ocean Conditions/oc_october.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_october.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
@@ -54,7 +54,7 @@ CREATE TABLE environment_data.oc_november
 );
 
 COPY OFFSET 2 INTO environment_data.oc_november (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/path/to/data/[E1] Ocean Conditions/oc_november.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_november.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
@@ -75,7 +75,7 @@ CREATE TABLE environment_data.oc_december
 );
 
 COPY OFFSET 2 INTO environment_data.oc_december (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/path/to/data/[E1] Ocean Conditions/oc_december.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_december.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
@@ -97,7 +97,7 @@ CREATE TABLE environment_data.oc_january
 );
 
 COPY OFFSET 2 INTO environment_data.oc_january (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/path/to/data/[E1] Ocean Conditions/oc_january.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_january.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
@@ -119,7 +119,7 @@ CREATE TABLE environment_data.oc_february
 );
 
 COPY OFFSET 2 INTO environment_data.oc_february (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/path/to/data/[E1] Ocean Conditions/oc_february.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_february.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
@@ -141,7 +141,7 @@ CREATE TABLE environment_data.oc_march
 );
 
 COPY OFFSET 2 INTO environment_data.oc_march (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/path/to/data/[E1] Ocean Conditions/oc_march.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_march.csv'
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
@@ -161,7 +161,7 @@ CREATE TABLE environment_data.wind_direction
 );
 
 COPY OFFSET 2 INTO environment_data.wind_direction(id_wind_direction, dd_num, dd_plaintext, dd_shorttext)
-FROM '/path/to/data/[E2] Weather Conditions/table_winddirection.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E2] Weather Conditions/table_winddirection.csv'
 DELIMITERS ',','\n','"';
 
 CREATE TABLE environment_data.weather_station
@@ -175,14 +175,12 @@ CREATE TABLE environment_data.weather_station
 );
 
 COPY OFFSET 2 INTO environment_data.weather_station(id_station, station_name, latitude, longitude, elevation)
-FROM '/path/to/data/[E2] Weather Conditions/table_weatherstation.csv'
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E2] Weather Conditions/table_weatherstation.csv'
 DELIMITERS ',';
 
 #GEOM COLUMN
 ALTER TABLE environment_data.weather_station ADD COLUMN geom Geometry;
 UPDATE environment_data.weather_station SET geom = st_setsrid(st_point(longitude,latitude),4326);
-
-UPDATE sys.fao_areas SET geom = st_setsrid(geom,4326);
 
 CREATE TABLE environment_data.observations
 (
@@ -215,6 +213,6 @@ CREATE TABLE environment_data.observations
  );
 
 COPY OFFSET 2 INTO environment_data.observations (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
-FROM '/path/to/data/[E2] Weather Conditions/table_wheatherobservation.csv' (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E2] Weather Conditions/table_wheatherobservation.csv' (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
 DELIMITERS ',';
 

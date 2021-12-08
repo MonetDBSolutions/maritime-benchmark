@@ -19,7 +19,7 @@ CREATE TABLE vessel_data.aton (
 );
 
 COPY OFFSET 2 INTO vessel_data.aton(nature, id_code, definition) 
-FROM '/path/to/data/[P1] AIS Status, Codes and Types/aton.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/aton.csv' 
 DELIMITERS ';';
 
 CREATE TABLE vessel_data.mmsi_country_codes(
@@ -29,7 +29,7 @@ CREATE TABLE vessel_data.mmsi_country_codes(
 );
 
 COPY INTO vessel_data.mmsi_country_codes(country_code, country) 
-FROM '/path/to/data/[P1] AIS Status, Codes and Types/mmsi_country_codes.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/MMSI Country Codes.csv'
 DELIMITERS ',','\n','"' NULL AS '';
   
 CREATE TABLE vessel_data.navigational_status (
@@ -39,7 +39,7 @@ CREATE TABLE vessel_data.navigational_status (
 );
 
 COPY INTO vessel_data.navigational_status(id_status, definition) 
-FROM '/path/to/data/[P1] AIS Status, Codes and Types/navigational_status.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/Navigational Status.csv'
 DELIMITERS ';';
   
 CREATE TABLE vessel_data.ship_types (
@@ -52,7 +52,7 @@ CREATE TABLE vessel_data.ship_types (
 );
 
 COPY OFFSET 2 INTO vessel_data.ship_types(id_shiptype,shiptype_min,shiptype_max,type_name,ais_type_summary) 
-FROM '/path/to/data/[P1] AIS Status, Codes and Types/ship_types_list.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/Ship Types List.csv'
 DELIMITERS ',';
   
 CREATE TABLE vessel_data.ship_types_detailed (
@@ -67,7 +67,7 @@ CREATE TABLE vessel_data.ship_types_detailed (
 );
 
 COPY OFFSET 2 INTO vessel_data.ship_types_detailed (id_detailedtype,detailed_type,id_shiptype) 
-FROM '/path/to/data/[P1] AIS Status, Codes and Types/ship_types_detailed_list.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/Ship Types Detailed List.csv'
 DELIMITERS ',';
 
 #
@@ -98,7 +98,7 @@ CREATE TABLE vessel_data.anfr_vessel_list
 );
 
 COPY OFFSET 2 INTO vessel_data.anfr_vessel_list (maritime_area, registration_number, imo_number, ship_name, callsign, mmsi, shiptype, length, tonnage, tonnage_unit, materiel_onboard, atis_code, radio_license_status, date_first_license, date_inactivity_license)
-FROM '/path/to/data/[C6] ANFR Vessel List/anfr.csv' (maritime_area, registration_number, imo_number, ship_name, callsign, mmsi, shiptype, length, tonnage, tonnage_unit, materiel_onboard, atis_code, radio_license_status, date_first_license, date_inactivity_license)
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C6] ANFR Vessel List/anfr.csv' (maritime_area, registration_number, imo_number, ship_name, callsign, mmsi, shiptype, length, tonnage, tonnage_unit, materiel_onboard, atis_code, radio_license_status, date_first_license, date_inactivity_license)
 DELIMITERS ';','\n','"' NULL AS '';
 
 
@@ -153,10 +153,8 @@ CREATE TABLE vessel_data.eu_fishingvessels
 );
 
 COPY OFFSET 2 INTO vessel_data.eu_fishingvessels (countrycode,cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,decisiondate, decisionsegcode, constructionyear, constructionplace)
-FROM '/path/to/data/[C6] EU Fishing Vessels/europeanvessel_data.csv' countrycode,cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,decisiondate, decisionsegcode, constructionyear, constructionplace)
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C6] EU Fishing Vessels/EuropeanVesselRegister.csv' (countrycode,cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,decisiondate, decisionsegcode, constructionyear, constructionplace)
 DELIMITERS ';','\n','"' NULL AS '';
-  
-COPY OFFSET 2 INTO vessel_data.eu_fishingvessels (countrycode,cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,decisiondate, decisionsegcode, constructionyear, constructionplace) FROM '/path/to/data/[C6] EU Fishing Vessels/europeanvessel_data.csv' (countrycode,cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,decisiondate, decisionsegcode, constructionyear, constructionplace) DELIMITERS ';','\n','"' NULL AS '';
 
 CREATE TABLE vessel_data.eu_eventcode_details
 (
@@ -166,7 +164,7 @@ CREATE TABLE vessel_data.eu_eventcode_details
 );
 
 COPY OFFSET 2 INTO vessel_data.eu_eventcode_details (eventcode,details)
-FROM '/path/to/data/[C6] EU Fishing Vessels/table_event_codes.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C6] EU Fishing Vessels/table_event_codes.csv' 
 DELIMITERS ',','\n','"' NULL AS '';
 
 
@@ -179,6 +177,6 @@ CREATE TABLE vessel_data.eu_geartypecode_details
 );
 
 COPY OFFSET 2 INTO vessel_data.eu_geartypecode_details(gearmaincode, detail1, detail2)
-FROM '/path/to/data/[C6] EU Fishing Vessels/table_gear_type_code.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C6] EU Fishing Vessels/table_gear_type_code.csv' 
 DELIMITERS ',','\n','"' NULL AS '';
 

@@ -24,7 +24,7 @@ CREATE TABLE ais_data.dynamic_sar (
 );
 
 COPY OFFSET 2 INTO ais_data.dynamic_sar (mmsi,altitude,speed,course,lon,lat,ts) 
-FROM '/path/to/data/[P1] AIS Data/nari_dynamic_sar.csv' (mmsi,altitude,speed,course,lon,lat,ts) 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_dynamic_sar.csv' (mmsi,altitude,speed,course,lon,lat,ts) 
 DELIMITERS ',';
 
 #GEOM COLUMN
@@ -50,7 +50,7 @@ CREATE TABLE ais_data.dynamic_aton(
 );
 
 COPY OFFSET 2 INTO ais_data.dynamic_aton (mmsi,typeofaid,aidsname,vrt_tmp,lon,lat,ts) 
-FROM '/path/to/data/[P1] AIS Data/nari_dynamic_aton.csv' (mmsi,typeofaid,aidsname,vrt_tmp,lon,lat,t) 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_dynamic_aton.csv' (mmsi,typeofaid,aidsname,vrt_tmp,lon,lat,t) 
 DELIMITERS ',';
 UPDATE ais_data.dynamic_aton SET virtual = (SELECT CASE WHEN vrt_tmp = 'f' THEN FALSE ELSE TRUE END);
 
@@ -83,7 +83,7 @@ CREATE TABLE ais_data.static_ships(
 );
 
 COPY OFFSET 2 INTO ais_data.static_ships(sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts) 
-FROM '/path/to/data/[P1] AIS Data/nari_static.csv' (sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts) 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_static.csv' (sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts) 
 DELIMITERS ',','\n','"' NULL AS '' BEST EFFORT;
 
 #Timestamp Column
@@ -106,7 +106,7 @@ CREATE TABLE ais_data.dynamic_ships(
 );
 
 COPY OFFSET 2 INTO ais_data.dynamic_ships(mmsi,status,turn,speed,course,heading,lon,lat,ts) 
-FROM '/path/to/data/[P1] AIS Data/nari_dynamic.csv' (mmsi,status,turn,speed,course,heading,lon,lat,ts) 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_dynamic.csv' (mmsi,status,turn,speed,course,heading,lon,lat,ts) 
 DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN

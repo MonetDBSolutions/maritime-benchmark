@@ -16,6 +16,7 @@ from time import sleep
 # TODO: Import download data script into here?
 # TODO: Read from CSV header; Create table from columns of CSV
 # TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
+# TODO: Delete results directory if the run had an exception
 
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',

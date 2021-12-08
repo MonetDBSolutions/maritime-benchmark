@@ -7,58 +7,21 @@ import time
 import urllib
 import zipfile
 import requests
-import fileinput
 
 def main():
     pwd = os.getcwd()
 
-    dir = os.path.join(pwd + "/data")
+    datadir = os.path.join(pwd + "/data")
 
-    if not os.path.exists(dir):
-        os.mkdir(dir)
+    if not os.path.exists(datadir):
+        os.mkdir(datadir)
 
-    download_data(dir)
-    shutil.rmtree(dir)
-    os.mkdir(dir)
-    builtin_dir = os.path.join(pwd, '<built-in function dir>')
+    download_data(datadir)
+    shutil.rmtree(datadir)
+    os.mkdir(datadir)
+    print("data is downloaded")
 
-    rename_downloaded_files(builtin_dir, dir)
-
-    print(f"replacing /path/to/data with actual pwd: {pwd}/data/")
-    change_pwd_in_files(f"{pwd}/load/monetdb", dir)
-    change_pwd_in_files(f"{pwd}/load/postgres", dir)
-    change_pwd_in_file(f"{pwd}/load_psql.sh", dir)
-
-
-# Change all instances of /path/to/data
-# with the relevant path.
-def change_pwd_in_files(path, dir):
-    files = os.listdir(path)
-
-    for name in files:
-        change_pwd_in_file(f"{path}/{name}", dir)
-
-def change_pwd_in_file(filename, src_dir):
-    TARGET = '/path/to/data'
-
-    with fileinput.input(filename, inplace=True) as f:
-            for line in f:
-                if TARGET in line:
-                    line = line.replace(TARGET, src_dir)
-
-                print(line, end='')
-
-
-
-def rename_downloaded_files(src, dest):
-    for dir in os.listdir(src):
-        for file in os.listdir(f"{src}/{dir}"):
-            f = file.replace(' ', '_').lower()
-            os.rename(f"{src}/{dir}/{file}", f"{src}/{dir}/{f}")
-        shutil.move(f"{src}/{dir}", f"{dest}")
-    shutil.rmtree(src)
-
-def download_data(dir):
+def download_data(datadir):
     HOME = "https://zenodo.org/record/1167595/files/"
     links = ['%5BC1%5D%20Ports%20of%20Brittany.zip', '%5BC1%5D%20SeaDataNet%20Port%20Index.zip', "%5BC2%5D%20European%20Coastline.zip",
         '%5BC1%5D%20World%20Port%20Index.zip', '%5BC2%5D%20European%20Maritime%20Boundaries.zip',
@@ -87,11 +50,11 @@ def download_data(dir):
                 continue
 
         filename = urllib.parse.unquote(link)
-        _zipLoc = f"{dir}/{filename}"
+        _zipLoc = f"{datadir}/{filename}"
         print(f"writing to {_zipLoc}")
         _zip = open(_zipLoc, 'wb')
         _zip.write(r.content)
-        unzip_and_rename(_zipLoc, dir, filename)
+        unzip_and_rename(_zipLoc, datadir, filename)
         _zip.close()
         os.remove(_zipLoc)
 
