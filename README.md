@@ -5,7 +5,7 @@ This repo contains scripts to download and load datasets from the 'Guide to Mari
 **NOTES:**
 * In order to load geo data into MonetDB, the **geo-update** branch must be used. For Postgres, you must have the **PostGIS extension** installed.
 * The default name of the database where the data is loaded into is **maritime**, but you can change it through *load.py* arguments.
-* The **database servers must be running** before running the loading script (you must start the server and create a database name maritime yourself).
+* The **database servers must be running** before running the loading script: you must **start the server** and **create the database** yourself).
 
 ### How to download and load data
 1. Use the *download_data.py* script to download all the datasets to the *data/* directory
