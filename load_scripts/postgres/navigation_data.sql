@@ -1,18 +1,9 @@
-﻿-- -------------------------------------
--- Dataset 10.5281/zenodo.1167595
--- Naval Academy, France
--- Licence CC-BY-NC-SA-4.0
--- -------------------------------------
-
- -- [P1] AIS Data --
 DROP SCHEMA IF EXISTS ais_data CASCADE;
-DROP TABLE IF EXISTS ais_data.dynamic_srbm;
 DROP TABLE IF EXISTS ais_data.dynamic_sar;
 DROP TABLE IF EXISTS ais_data.dynamic_aton;
 DROP TABLE IF EXISTS ais_data.static_ships;
 DROP TABLE IF EXISTS ais_data.dynamic_ships;
 
-DROP SEQUENCE IF EXISTS ais_data.dynamic_srbm_id_seq;
 DROP SEQUENCE IF EXISTS ais_data.dynamic_sar_id_seq;
 DROP SEQUENCE IF EXISTS ais_data.dynamic_aton_id_seq;
 DROP SEQUENCE IF EXISTS ais_data.static_ships_id_seq;
@@ -166,4 +157,3 @@ UPDATE ais_data.dynamic_ships SET geom = ST_SetSRID(ST_MakePoint(lon, lat),4326)
 
 ALTER TABLE ais_data.dynamic_ships ADD COLUMN t timestamp without time zone;
 UPDATE ais_data.dynamic_ships SET t = to_timestamp(ts);
-

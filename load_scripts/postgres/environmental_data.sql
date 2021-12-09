@@ -169,7 +169,7 @@ UPDATE ocean_condition.oc_march SET geom = ST_SetSRID(ST_MakePoint(lon, lat),432
 -- -------------------------------------
 
 -- [E2] WEATHER CONDITIONS -- 
---DROP SCHEMA IF EXISTS wheather_conditions CASCADE;
+DROP SCHEMA IF EXISTS wheather_conditions CASCADE;
 CREATE SCHEMA IF NOT EXISTS wheather_conditions;
 
 DROP TABLE IF EXISTS wheather_conditions.observations;

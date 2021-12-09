@@ -6,19 +6,6 @@ if [ $# -eq 1 ]; then
 	db_name=$1
 fi
 
-echo "Connecting to '$db_name' database"
-
-psql -d $db_name -c 'CREATE EXTENSION postgis';
-
-sql_load=("navigation_data.sql" "vessel_data.sql" "environmental_data.sql")
-
-for s in ${sql_load[@]}; do
-	echo "Loading $s"
-	psql -d $db_name -f $PWD/load_scripts/postgres/$s
-done
-
-echo "Loading Shapefile data"
-
 # Ports Locations
 psql -d $db_name  -c "CREATE SCHEMA IF NOT EXISTS ports;"
 shp2pgsql -I -s 4326 '/Users/bernardo/Monet/Geo/maritime-import/data/[C1] Ports of Brittany/port.shp' ports.ports_of_brittany | psql  -d $db_name;

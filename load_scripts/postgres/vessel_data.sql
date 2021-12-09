@@ -5,16 +5,14 @@
 -- -------------------------------------
 
 -- P1] AIS Status, Codes and Types --
---DROP SCHEMA IF EXISTS ais_status_codes_types CASCADE;
-
-CREATE SCHEMA IF NOT EXISTS ais_status_codes_types;
-
+DROP SCHEMA IF EXISTS ais_status_codes_types CASCADE;
 DROP TABLE IF EXISTS ais_status_codes_types.aton;
 DROP TABLE IF EXISTS ais_status_codes_types.mmsi_country_codes;
 DROP TABLE IF EXISTS ais_status_codes_types.navigational_status;
 DROP TABLE IF EXISTS ais_status_codes_types.ship_types;
 DROP SEQUENCE IF EXISTS ais_status_codes_types.ship_types_detailed;
 
+CREATE SCHEMA IF NOT EXISTS ais_status_codes_types;
   
 CREATE TABLE ais_status_codes_types.aton
   (
@@ -45,7 +43,7 @@ WITH (
 
 COPY ais_status_codes_types.mmsi_country_codes(
   country_code, country)
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/mmsi_country_codes.csv'
+  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/MMSI Country Codes.csv'
 delimiter ',' csv ;
 
 
@@ -62,7 +60,7 @@ WITH (
 
 COPY ais_status_codes_types.navigational_status(
   id_status, definition)
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/navigational_status.csv'
+  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/Navigational Status.csv'
 delimiter ';' csv;
 
 
@@ -83,7 +81,7 @@ WITH (
 COPY ais_status_codes_types.ship_types(
   id_shiptype,shiptype_min,shiptype_max,type_name,ais_type_summary
   )
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/ship_types_list.csv'
+  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/Ship Types List.csv'
 delimiter ',' csv header;
 
   
@@ -106,7 +104,7 @@ WITH (
 COPY ais_status_codes_types.ship_types_detailed(
   id_detailedtype,detailed_type,id_shiptype
   )
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/ship_types_detailed_list.csv'
+  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Status, Codes and Types/Ship Types Detailed List.csv'
 delimiter ',' csv header;
 
 -- -------------------------------------
@@ -117,9 +115,11 @@ delimiter ',' csv header;
 
 -- [C6] ANFR Vessel List --
 
---DROP SCHEMA IF EXISTS vesselregister CASCADE;
---DROP TABLE IF EXISTS vesselregister.anfr_vessel_list;
---DROP SEQUENCE IF EXISTS vesselregister.anfr_vessel_list_id_seq;
+DROP SCHEMA IF EXISTS vesselregister CASCADE;
+DROP TABLE IF EXISTS vesselregister.anfr_vessel_list;
+DROP SEQUENCE IF EXISTS vesselregister.anfr_vessel_list_id_seq;
+
+CREATE SCHEMA IF NOT EXISTS vesselregister;
 
 CREATE SEQUENCE vesselregister.anfr_vessel_list_id_seq
   INCREMENT 1
@@ -164,7 +164,6 @@ delimiter ';' csv header;
 -- -------------------------------------
 
 -- [C6] EU Fishing Vessels --
---DROP SCHEMA IF EXISTS vesselregister CASCADE;
 
 DROP TABLE IF EXISTS vesselregister.eu_fishingvessels;
 DROP TABLE IF EXISTS vesselregister.eu_eventcode_details;
@@ -181,7 +180,7 @@ CREATE SEQUENCE vesselregister.eu_fishingvessels_id_seq
 CREATE TABLE vesselregister.eu_fishingvessels
 (
   id bigint NOT NULL DEFAULT nextval('vesselregister.eu_fishingvessels_id_seq'::regclass),  
-  "﻿countrycode" character varying(3),
+  countrycode character varying(3),
   cfr character varying(12),
   eventcode character varying(3),
   eventstartdate integer,
@@ -223,11 +222,11 @@ WITH (
   OIDS=FALSE
 );
 
-COPY vesselregister.eu_fishingvessels("countrycode",
+COPY vesselregister.eu_fishingvessels(countrycode,
   cfr, eventcode, eventstartdate, eventenddate, licenseind, registrationnbr, extmarking, vesselname, portcode, portname, ircscode, ircs, vmscode, gearmaincode,
   gearseccode, loa, lbp, tonref, tongt, tonoth, tongts, powermain, poweraux, hullmaterial, comyear, commonth, comday, segment, expcountry, exptype, publicaidcode,
   decisiondate, decisionsegcode, constructionyear, constructionplace)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C6] EU Fishing Vessels/europeanvesselregister.csv' 
+FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C6] EU Fishing Vessels/EuropeanVesselRegister.csv'
 delimiter ';' csv header;
   
 CREATE TABLE vesselregister.eu_eventcode_details
