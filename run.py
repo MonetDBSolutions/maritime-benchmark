@@ -17,6 +17,9 @@ from time import sleep
 # TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
 # TODO: Delete results directory if the run had an exception
 
+MONET_ONLY = 'mdb'
+PGRES_ONLY = 'pgdb'
+
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',
     epilog='''
@@ -42,6 +45,8 @@ parser.add_argument('--export', help='Turn on exporting query tables after execu
                     action='store_true')
 parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop',
                     action='store_false')
+parser.add_argument('--single-system', help='Choose to run the benchmark on only one db system (default both systems)',
+                    dest='system', choices=[MONET_ONLY, PGRES_ONLY]) 
 
 args = parser.parse_args()
 
@@ -776,12 +781,12 @@ class PostgresServer:
         return True
 
 
-def write_performance_results(result_dir, timestamp):
-    monet_array = results['monet']
-    psql_array = results['psql']
+def write_performance_results(result_dir, timestamp, dbsys):
+    monet_array = results['monet'] if dbsys != PGRES_ONLY else []
+    psql_array = results['psql'] if dbsys != MONET_ONLY else []
+    
     results_file = f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}.csv'
     write_header = not os.path.isfile(results_file)
-
     with open(results_file, 'a', encoding='UTF8') as f:
         writer = csv.writer(f)
         if write_header:
@@ -789,18 +794,31 @@ def write_performance_results(result_dir, timestamp):
         line_count = min(len(monet_array), len(monet_array))
         for i in range(line_count):
             try:
-                monet_result = monet_array[i]
-                psql_result = psql_array[i]
-                # When server_time is not available, leave the column as an empty string
-                if monet_result["server_time"] < 0:
-                    monet_result["server_time"] = ""
-                if psql_result["server_time"] < 0:
-                    psql_result["server_time"] = ""
-                writer.writerow([f'{monet_result["scale"]}', f'{monet_result["operation"]}',
-                                 f'{monet_result["server_time"]}', f'{round(monet_result["client_time"],3)}',
-                                 f'{psql_result["server_time"]}', f'{round(psql_result["client_time"],3)}'])
-            except IndexError as msg:
-                logger.exception(msg)
+                # each result row will have info + monet_times + psql_times 
+                info = monet_times = psql_times = ['', ''] 
+                 
+                # we always want to write info (scale + operation)
+                if dbsys != PGRES_ONLY: 
+                    info = [f'{monet_array[i].get("scale")}',
+                            f'{monet_array[i].get("operation")}']
+                elif dbsys != MONET_ONLY: 
+                    info = [f'{psql_array[i].get("scale")}',
+                            f'{psql_array[i].get("operation")}']
+
+                # lambda for exluding negative server time from results
+                stime_filter = lambda t : t if t > 0 else '' 
+                
+                if dbsys != PGRES_ONLY:
+                    monet_times = [stime_filter(monet_array[i].get("server_time")), 
+                                   f'{round(monet_array[i].get("client_time"),3)}']
+                
+                if dbsys != MONET_ONLY:
+                    psql_times = [stime_filter(psql_array[i].get("server_time")), 
+                                  f'{round(psql_array[i].get("client_time"),3)}'] 
+
+                writer.writerow(info + monet_times + psql_times)                
+            except Exception as e:
+                logger.exception(e)
                 break
     results["monet"] = []
     results["psql"] = []
@@ -808,15 +826,20 @@ def write_performance_results(result_dir, timestamp):
 
 def write_performance_results_metadata(result_dir, timestamp, monet_handler, psql_handler):
     with open(f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}_meta.txt', 'w', encoding='UTF8') as f:
-        f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
-        f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
-        f.write(
-            f"Postgres server version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n")
-        f.write(f"psycopg2 client version {psycopg2.__version__}\n\n")
+        if monet_handler: 
+            f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
+            f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
+       
+        if psql_handler:
+            f.write(f"Postgres server version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n")
+            f.write(f"psycopg2 client version {psycopg2.__version__}\n\n")
+        
         f.write(f"Distance is calculated with the sphere model\n\n")
         f.write("Number of records for Scale Factors:\n")
+       
         for i in range(0, len(args.scale)):
-            f.write(f"SF {args.scale[i]}: {monet_handler.record_number[i]} ais_dynamic records\n")
+            r = monet_handler.record_number[i] if not psql_handler else psql_handler.record_number[i]
+            f.write(f"SF {args.scale[i]}: {r} ais_dynamic records\n")
 
 
 def configure_logger():
@@ -926,10 +949,10 @@ if __name__ == "__main__":
     configure_logger()
 
     # If the user specified a dbfarm for MDB, start the server from the script
-    if args.dbfarm_monet:
+    if args.dbfarm_monet and args.system != PGRES_ONLY:
         m_server = MonetServer(args.dbfarm_monet, args.database)
     # If the user specified a dbfarm for PSQL, start the server from the script
-    if args.dbfarm_psql:
+    if args.dbfarm_psql and args.system != MONET_ONLY:
         p_server = PostgresServer(args.dbfarm_psql, args.database)
 
     m_handler = None
@@ -938,12 +961,16 @@ if __name__ == "__main__":
     try:
         now = datetime.datetime.now()
         results_dir = create_query_results_dirs(now, args.export)
-        m_handler = MonetHandler(results_dir)
-        p_handler = PostgresHandler(results_dir)
+        # initialize handlers 
+        m_handler = MonetHandler(results_dir) if args.system != PGRES_ONLY else None 
+        p_handler = PostgresHandler(results_dir) if args.system != MONET_ONLY else None
+        # for every scale factor run the benchmark (schema creation, data loading, queries)
         for scale in args.scale:
-            m_handler.benchmark(scale)
-            p_handler.benchmark(scale)
-            write_performance_results(results_dir, now)
+            if args.system != PGRES_ONLY:
+                m_handler.benchmark(scale)
+            if args.system != MONET_ONLY:
+                p_handler.benchmark(scale)
+            write_performance_results(results_dir, now, args.system)
             if args.export:
                 compare_query_results(results_dir, scale)
         write_performance_results_metadata(results_dir, now, m_handler, p_handler)
@@ -957,7 +984,8 @@ if __name__ == "__main__":
         p_handler.close()
 
     # Stopping servers, if they were started from the script
-    if args.dbfarm_monet:
+    if args.dbfarm_monet and args.system != PGRES_ONLY:
         m_server.stop_server(args.drop)
-    if args.dbfarm_psql:
+    if args.dbfarm_psql and args.system != MONET_ONLY:
         p_server.stop_server(args.drop)
+
