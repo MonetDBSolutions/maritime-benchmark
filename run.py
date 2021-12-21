@@ -501,7 +501,7 @@ class PostgresHandler(DatabaseHandler):
     def load_shp(self, cur):
         total_time = 0
         for csv_t in load_tables["shape_tables"]:
-            query = f'shp2pgsql -I -s {csv_t["srid"]} \'{args.data}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
+            query = f'shp2pgsql -h && shp2pgsql -I -s {csv_t["srid"]} \'{args.data}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
             start = timer()
             try:
                 check_output(query, shell=True, stderr=STDOUT)
