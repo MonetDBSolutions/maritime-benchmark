@@ -791,7 +791,15 @@ def write_performance_results(result_dir, timestamp, dbsys):
         writer = csv.writer(f)
         if write_header:
             writer.writerow(results_header)
-        line_count = min(len(monet_array), len(monet_array))
+
+        line_count = 0
+        if dbsys == PGRES_ONLY:
+            line_count = len(psql_array)
+        elif dbsys == MONET_ONLY:
+            line_count = len(monet_array)
+        else:
+            line_count = min(len(monet_array), len(psql_array))
+        
         for i in range(line_count):
             try:
                 # each result row will have info + monet_times + psql_times 
