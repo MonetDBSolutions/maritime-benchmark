@@ -61,9 +61,10 @@ def download_data(datadir):
 def unzip_and_rename(z, d, f):
     f = f.split('.')[0].strip()
     with zipfile.ZipFile(z, 'r') as zip_ref:
-        print(f"creating and extracting to: {d}/{f}")
-        os.mkdir(f"{d}/{f}")
-        zip_ref.extractall(f"{dir}/{f}")
+        target = f"{d}/{f}"
+        print("creating and extracting to: ", target)
+        os.mkdir(target)
+        zip_ref.extractall(target)
 
 
 if __name__ == '__main__':
