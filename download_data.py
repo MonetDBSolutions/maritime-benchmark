@@ -13,13 +13,13 @@ def main():
 
     datadir = os.path.join(pwd + "/data")
 
-    if not os.path.exists(datadir):
-        os.mkdir(datadir)
-
-    download_data(datadir)
-    shutil.rmtree(datadir)
+    if os.path.exists(datadir):
+        print(f"ERROR: {datadir} already exists")
+        exit(1)
+    
     os.mkdir(datadir)
-    print("data is downloaded")
+    download_data(datadir)
+    print("data are downloaded")
 
 def download_data(datadir):
     HOME = "https://zenodo.org/record/1167595/files/"
