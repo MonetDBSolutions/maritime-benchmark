@@ -48,7 +48,7 @@ def download_data(datadir):
 
         for i in range(0, 5):
             try:
-                r = requests.get(url, allow_redirects=True)
+                r = requests.get(url, stream=True, allow_redirects=True)
                 break
             except:
                 # if a conn error occurs, sleep for 20 seconds then
@@ -57,13 +57,16 @@ def download_data(datadir):
                 time.sleep(20)
                 continue
 
+        sz = int(r.headers.get('content-length', 0))
+        print(f"file size: {round(sz/1024,1)} kiB")
+
         filename = urllib.parse.unquote(link)
         _zipLoc = f"{datadir}/{filename}"
         print(f"writing to {_zipLoc}")
-        _zip = open(_zipLoc, 'wb')
-        _zip.write(r.content)
+        with open(_zipLoc, 'wb') as _zip:
+            for chunk in r.iter_content(chunk_size=None):
+                _zip.write(chunk)
         unzip_and_rename(_zipLoc, datadir, filename)
-        _zip.close()
         os.remove(_zipLoc)
 
 def unzip_and_rename(z, d, f):
