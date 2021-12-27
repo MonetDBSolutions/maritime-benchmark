@@ -435,13 +435,14 @@ class MonetHandler(DatabaseHandler):
                 cur.execute(query)
             except pymonetdb.DatabaseError as msg:
                 logger.exception(msg)
-                continue
-            client_time = timer() - start
-            server_time = self.get_server_query_time(cur)
-            total_time += client_time
-            self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', server_time, client_time)
-            logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
-            logger.debug("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
+                self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, -1)
+            else: 
+                client_time = timer() - start
+                server_time = self.get_server_query_time(cur)
+                total_time += client_time
+                self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', server_time, client_time)
+                logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
+                logger.debug("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
         return total_time
 
 
@@ -507,10 +508,12 @@ class PostgresHandler(DatabaseHandler):
                 check_output(query, shell=True, stderr=STDOUT)
             except CalledProcessError as msg:
                 logger.exception(msg)
-            client_time = timer() - start
-            total_time += client_time
-            self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, client_time)
-            logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
+                self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, -1)
+            else:
+                client_time = timer() - start
+                total_time += client_time
+                self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, client_time)
+                logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
         return total_time
 
 
