@@ -27,7 +27,7 @@ WITH (
 
 COPY ais_status_codes_types.aton(
   nature, id_code, definition)
-  FROM '/path/to/data/[P1] AIS Status, Codes and Types/aton.csv'
+  FROM '/path/to/data/[P1] AIS Status, Codes and Types/ATON.csv'
 delimiter ';' csv header;
 
   

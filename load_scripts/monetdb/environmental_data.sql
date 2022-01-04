@@ -161,7 +161,7 @@ CREATE TABLE environment_data.wind_direction
 );
 
 COPY OFFSET 2 INTO environment_data.wind_direction(id_wind_direction, dd_num, dd_plaintext, dd_shorttext)
-FROM '/path/to/data/[E2] Weather Conditions/table_winddirection.csv'
+FROM '/path/to/data/[E2] Weather Conditions/table_windDirection.csv'
 DELIMITERS ',','\n','"';
 
 CREATE TABLE environment_data.weather_station
@@ -175,7 +175,7 @@ CREATE TABLE environment_data.weather_station
 );
 
 COPY OFFSET 2 INTO environment_data.weather_station(id_station, station_name, latitude, longitude, elevation)
-FROM '/path/to/data/[E2] Weather Conditions/table_weatherstation.csv'
+FROM '/path/to/data/[E2] Weather Conditions/table_weatherStation.csv'
 DELIMITERS ',';
 
 #GEOM COLUMN
@@ -213,6 +213,6 @@ CREATE TABLE environment_data.observations
  );
 
 COPY OFFSET 2 INTO environment_data.observations (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
-FROM '/path/to/data/[E2] Weather Conditions/table_wheatherobservation.csv' (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
+FROM '/path/to/data/[E2] Weather Conditions/table_wheatherObservation.csv' (id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
 DELIMITERS ',';
 

@@ -19,7 +19,7 @@ CREATE TABLE vessel_data.aton (
 );
 
 COPY OFFSET 2 INTO vessel_data.aton(nature, id_code, definition) 
-FROM '/path/to/data/[P1] AIS Status, Codes and Types/aton.csv' 
+FROM '/path/to/data/[P1] AIS Status, Codes and Types/ATON.csv'
 DELIMITERS ';';
 
 CREATE TABLE vessel_data.mmsi_country_codes(
