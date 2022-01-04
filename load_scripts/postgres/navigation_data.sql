@@ -40,7 +40,7 @@ WITH (
 COPY ais_data.dynamic_sar(
   mmsi,altitude,speed,course,lon,lat,ts
   )
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_dynamic_sar.csv'
+  FROM '/path/to/data/[P1] AIS Data/nari_dynamic_sar.csv'
 delimiter ',' csv HEADER;
 
 ALTER TABLE ais_data.dynamic_sar ADD COLUMN geom geometry(Point,4326);
@@ -76,7 +76,7 @@ WITH (
 COPY ais_data.dynamic_aton(
   mmsi,typeofaid,aidsname,virtual,lon,lat,ts
   )
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_dynamic_aton.csv'
+  FROM '/path/to/data/[P1] AIS Data/nari_dynamic_aton.csv'
 delimiter ',' csv HEADER;
 
 ALTER TABLE ais_data.dynamic_aton ADD COLUMN geom geometry(Point,4326);
@@ -115,7 +115,7 @@ WITH (
 COPY ais_data.static_ships(
   sourcemmsi,imo,callsign,shipname,shiptype,to_bow,to_stern,to_starboard,to_port,eta,draught,destination,mothershipmmsi,ts
   )
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_static.csv'
+  FROM '/path/to/data/[P1] AIS Data/nari_static.csv'
 delimiter ',' csv HEADER;
 
 
@@ -149,7 +149,7 @@ WITH (
 COPY ais_data.dynamic_ships(
   mmsi,status,turn,speed,course,heading,lon,lat,ts
   )
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[P1] AIS Data/nari_dynamic.csv'
+  FROM '/path/to/data/[P1] AIS Data/nari_dynamic.csv'
 delimiter ',' csv HEADER;
 
 ALTER TABLE ais_data.dynamic_ships ADD COLUMN geom geometry(Point,4326);

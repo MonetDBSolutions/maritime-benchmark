@@ -24,7 +24,7 @@ WITH (
 );
 
 COPY ocean_condition.oc_october (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_october.csv'
+FROM '/path/to/data/[E1] Ocean Conditions/oc_october.csv'
 delimiter ',' csv header;
 
 ---------------- NOVEMBER --------------------
@@ -46,7 +46,7 @@ WITH (
 );
 
 COPY ocean_condition.oc_november (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_november.csv'
+FROM '/path/to/data/[E1] Ocean Conditions/oc_november.csv'
 delimiter ',' csv header;
 
 ---------------- DECEMBER --------------------
@@ -67,7 +67,7 @@ WITH (
 ); 
 
 COPY ocean_condition.oc_december (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_december.csv'
+FROM '/path/to/data/[E1] Ocean Conditions/oc_december.csv'
 delimiter ',' csv header;
 
 ---------------- JANUARY --------------------
@@ -89,7 +89,7 @@ WITH (
 );
 
 COPY ocean_condition.oc_january (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_january.csv'
+FROM '/path/to/data/[E1] Ocean Conditions/oc_january.csv'
 delimiter ',' csv header;
 
 
@@ -115,7 +115,7 @@ WITH (
 
 
 COPY ocean_condition.oc_february (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_february.csv'
+FROM '/path/to/data/[E1] Ocean Conditions/oc_february.csv'
 delimiter ',' csv header;
 
 
@@ -138,7 +138,7 @@ WITH (
 );
   
 COPY ocean_condition.oc_march (lon, lat, dpt, wlv,hs,lm,dir,ts)
-FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E1] Ocean Conditions/oc_march.csv'
+FROM '/path/to/data/[E1] Ocean Conditions/oc_march.csv'
 delimiter ',' csv header;
 
 ----------- Spatialisation of tables  ----------- 
@@ -191,7 +191,7 @@ WITH (
 
 COPY wheather_conditions.wind_direction(
   id_wind_direction, dd_num, dd_plaintext, dd_shorttext)
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E2] Weather Conditions/table_winddirection.csv'
+  FROM '/path/to/data/[E2] Weather Conditions/table_winddirection.csv'
 delimiter ',' csv header;
 
 CREATE TABLE wheather_conditions.weather_station
@@ -209,7 +209,7 @@ WITH (
 
 COPY wheather_conditions.weather_station(
   id_station, station_name, latitude, longitude, elevation)
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E2] Weather Conditions/table_weatherstation.csv'
+  FROM '/path/to/data/[E2] Weather Conditions/table_weatherstation.csv'
 delimiter ',' csv header;
 
 ALTER TABLE wheather_conditions.weather_station ADD COLUMN geom geometry(Geometry,4326);
@@ -259,7 +259,7 @@ WITH (
 
 COPY wheather_conditions.observations(
   id_station, local_time, T, Tn, Tx, P, U, id_windDirection, Ff, ff10, ff3, VV, Td, RRR, tR)
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[E2] Weather Conditions/table_wheatherobservation.csv'
+  FROM '/path/to/data/[E2] Weather Conditions/table_wheatherobservation.csv'
 delimiter ',' csv header;
 
 -- -------------------------------------
@@ -325,7 +325,7 @@ WITH (
 
 COPY natura2000.directives_species(
   directive,species_name,annexii,annexii1,annexii2,annexiii1,annexiii2,annexiv,annexv,spbcax1)
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/DIRECTIVESPECIES.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/DIRECTIVESPECIES.csv'
 delimiter ',' csv header;
 
 
@@ -358,7 +358,7 @@ WITH (
 
 COPY natura2000.contacts(
   "sitecode","name","email","address_unstructured","adminunit","thoroughfare","designator","postcode","postname","address","locatorname")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/CONTACTS.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/CONTACTS.csv'
 delimiter ',' csv header;
    
 
@@ -383,7 +383,7 @@ WITH (
 
 COPY natura2000.bioregion(
   "sitecode","biogefraphicreg","percentage")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/BIOREGION.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/BIOREGION.csv'
 delimiter ',' csv header;
 
 
@@ -411,7 +411,7 @@ WITH (
 
 COPY natura2000.designation_status(
   "sitecode","designationcode","designatedsitename","overlapcode","overlapperc")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/DESIGNATIONSTATUS.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/DESIGNATIONSTATUS.csv'
 delimiter ',' csv header;
 
 
@@ -435,7 +435,7 @@ WITH (
 
 COPY natura2000.impact(
   "sitecode","impactcode","description","intensity","pollutioncode","occurrence","impact_type")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/IMPACT.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/IMPACT.csv'
 delimiter ',' csv header;
 
 
@@ -462,7 +462,7 @@ WITH (
 
 COPY natura2000.habitat_class(
   "sitecode","habitatcode","percentagecover","description")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/HABITATCLASS.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/HABITATCLASS.csv'
 delimiter ',' csv header;
 
 
@@ -498,7 +498,7 @@ WITH (
 
 COPY natura2000.habitats(
   "sitecode","habitatcode","description","habitat_priority","priority_form_habitat_type","non_presence_in_site","cover_ha","caves","representativity","relsurface","conservation","global_assesment","dataquality","percentage_cover")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/HABITATS.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/HABITATS.csv'
 delimiter ',' csv header;
 
 
@@ -534,7 +534,7 @@ WITH (
 
 COPY natura2000.other_species(
   "country_code","sitecode","speciesgroup","speciesname","speciescode","motivation","sensitive","nonpresenceinsite","lowerbound","upperbound","counting_unit","abundance_category")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/OTHERSPECIES.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/OTHERSPECIES.csv'
 delimiter ',' csv header;
 
 
@@ -576,7 +576,7 @@ WITH (
 
 COPY natura2000.species(
   "country_code","sitecode","speciesname","speciescode","ref_spgroup","spgroup","sensitive","nonpresenceinsite","population_type","lowerbound","upperbound","counting_unit","abundance_category","dataquality","population","conservation","isolation","global")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/SPECIES.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/SPECIES.csv'
 delimiter ',' csv header;
 
 
@@ -626,6 +626,6 @@ UPDATE natura2000.sites SET geom = ST_SetSRID(ST_MakePoint(longitude,latitude),4
 SET datestyle = "ISO, DMY";
 COPY natura2000.sites(
   "country_code","sitecode","sitename","sitetype","date_compilation","date_update","date_spa","spa_legal_reference","date_prop_sci","date_conf_sci","date_sac","sac_legal_reference","explanations","areaha","lengthkm","marine_area_percentage","longitude","latitude","documentation","quality","designation","othercharact")
-  FROM '/Users/bernardo/Monet/Geo/maritime-import/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/NATURA2000SITES.csv'
+  FROM '/path/to/data/[C5] Marine Protected Areas (EEA Natura 2000)/descriptive data/NATURA2000SITES.csv'
 delimiter ',' csv header;
 
