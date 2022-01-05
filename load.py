@@ -6,6 +6,7 @@ import subprocess
 import argparse
 import pymonetdb
 import psycopg2
+import re
 
 parser = argparse.ArgumentParser(
     description='Maritime Geometric Data Loading (MonetDB Geo and Postgres PostGIS)',
@@ -16,29 +17,35 @@ parser.add_argument('--system', type=str, help='System to load the data (default
 parser.add_argument('--database', type=str, help='Name of the database to load the data (default is maritime)', required=False, default="maritime")
 args = parser.parse_args()
 
+GENERIC_PATH='/path/to/data'
+
 def main():
     pwd = os.getcwd()
 
     data_dir = os.path.join(pwd + "/data")
     scripts_dir = os.path.join(pwd + "/load_scripts")
 
-    print(f"replacing /path/to/data in sql scripts with actual pwd: {pwd}/data/")
-    change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
-    change_pwd_in_files(f"{scripts_dir}/postgres", data_dir)
-    change_pwd_in_file(f"{scripts_dir}/load_psql.sh", data_dir)
+    print(f"using {pwd}/data/ instead of {GENERIC_PATH} in SQL scripts")
 
     if args.system is None or args.system =="monet":
-        if load_monetdb(scripts_dir):
-            print("monetdb data is loaded")
-        else:
-            print("monetdb data failed")
+        change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
+        try:
+            load_monetdb(scripts_dir)
+        except Exception as e:
+            print(e)
+        finally:
+            set_generic_pwd_in_files(f"{scripts_dir}/monetdb") 
+
     if args.system is None or args.system =="postgres":
-        if load_postgres(scripts_dir):
-            print("postgres data is loaded")
-        else:
-            print("postgres data failed")
-
-
+        change_pwd_in_files(f"{scripts_dir}/postgres", data_dir)
+        change_pwd_in_file(f"{scripts_dir}/load_psql.sh", data_dir)
+        try:
+            load_postgres(scripts_dir)
+        except Exception as e:
+            print(e)
+        finally:
+            set_generic_pwd_in_files(f"{scripts_dir}/postgres")
+            set_generic_pwd_in_file(f"{scripts_dir}/load_psql.sh")
 
 # Change all instances of /path/to/data
 # with the relevant path.
@@ -49,12 +56,26 @@ def change_pwd_in_files(path, data_dir):
 
 
 def change_pwd_in_file(filename, data_dir):
-    TARGET = '/path/to/data'
+    with fileinput.input(filename, inplace=True) as f:
+        for line in f:
+            if GENERIC_PATH in line:
+                line = line.replace(GENERIC_PATH, data_dir)
+            print(line, end='')
+
+def set_generic_pwd_in_files(path):
+    files = os.listdir(path)
+    for name in files:
+        set_generic_pwd_in_file(f"{path}/{name}")
+
+def set_generic_pwd_in_file(filename):
+    # matches any '/User/blah/blah/blah/[' string 
+    rgx = '\/.*\['
 
     with fileinput.input(filename, inplace=True) as f:
         for line in f:
-            if TARGET in line:
-                line = line.replace(TARGET, data_dir)
+            m = re.search(rgx, line)
+            if m:
+                line = line.replace(m.group(0)[:-2], GENERIC_PATH)
             print(line, end='')
 
 def open_and_split_sql_file(filename):
@@ -79,7 +100,10 @@ def load_monetdb(scripts_dir):
     if conn:
         print(f"Connected to MonetDB database {args.database}")
         cur = conn.cursor()
-        load_files = ["navigation_data.sql","vessel_data.sql","geographic_data.sql","environmental_data.sql"]
+        load_files = ["navigation_data.sql",
+                      "vessel_data.sql",
+                      "geographic_data.sql",
+                      "environmental_data.sql"]
         for file in load_files:
             queries = open_and_split_sql_file(f"{scripts_dir}/monetdb/{file}")
             print(f"Loading file {file}")
@@ -102,7 +126,9 @@ def load_postgres(scripts_dir):
         cur = conn.cursor()
         #Turn on postgis
         execute_query(cur,"CREATE EXTENSION postgis;")
-        load_files = ["navigation_data.sql","vessel_data.sql","environmental_data.sql"]
+        load_files = ["navigation_data.sql",
+                      "vessel_data.sql",
+                      "environmental_data.sql"]
         for file in load_files:
             queries = open_and_split_sql_file(f"{scripts_dir}/postgres/{file}")
             print(f"Loading file {file}")
