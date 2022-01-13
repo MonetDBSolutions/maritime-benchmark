@@ -6,6 +6,36 @@ import time
 import urllib
 import zipfile
 import requests
+import argparse
+    
+parser = argparse.ArgumentParser()
+parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
+                    help='Load only the datasets needed for geo-benchmark. '
+                         'By default all Maritime data are loaded')
+args = parser.parse_args() 
+
+# 'bench' key describes if the dataset is required by the Geom benchmark
+sources = [
+    {'url': '%5BC1%5D%20Ports%20of%20Brittany.zip', 'bench': True},
+    {'url': '%5BC1%5D%20SeaDataNet%20Port%20Index.zip', 'bench': False},
+    {'url': '%5BC2%5D%20European%20Coastline.zip', 'bench': False},
+    {'url': '%5BC1%5D%20World%20Port%20Index.zip', 'bench': True},
+    {'url': '%5BC2%5D%20European%20Maritime%20Boundaries.zip', 'bench': False},
+    {'url': '%5BC2%5D%20IHO%20World%20Seas.zip', 'bench': False},
+    {'url': '%5BC2%5D%20World%20EEZ.zip', 'bench': False},
+    {'url': '%5BC4%5D%20FAO%20Maritime%20Areas.zip', 'bench': True},
+    {'url': '%5BC4%5D%20Fishing%20Areas%20%28European%20commission%29.zip', 'bench': True},
+    {'url': '%5BC5%5D%20Fishing%20Constraints.zip', 'bench': False},
+    {'url': '%5BC5%5D%20Marine%20Protected%20Areas%20%28EEA%20Natura%202000%29.zip', 'bench': False},
+    {'url': '%5BC6%5D%20ANFR%20Vessel%20List.zip', 'bench': False},
+    {'url': '%5BC6%5D%20EU%20Fishing%20Vessels.zip', 'bench': False},
+    {'url': '%5BE1%5D%20Ocean%20Conditions.zip', 'bench': False},
+    {'url': '%5BE2%5D%20Weather%20Conditions.zip', 'bench': False},
+    {'url': '%5BP1%5D%20AIS%20Data.zip', 'bench': True},
+    {'url': '%5BP1%5D%20AIS%20Status%2C%20Codes%20and%20Types.zip', 'bench': False},
+    {'url': '%5BP1%5D%20Brest%20Receiver.zip', 'bench': False},
+    {'url': '%5BQ1%5D%20Integration%20Queries.zip', 'bench': False}
+]
 
 def main():
     pwd = os.getcwd()
@@ -22,25 +52,8 @@ def main():
 
 def download_data(datadir):
     HOME = "https://zenodo.org/record/1167595/files/"
-    links = ['%5BC1%5D%20Ports%20of%20Brittany.zip',
-             '%5BC1%5D%20SeaDataNet%20Port%20Index.zip',
-             '%5BC2%5D%20European%20Coastline.zip',
-             '%5BC1%5D%20World%20Port%20Index.zip',
-             '%5BC2%5D%20European%20Maritime%20Boundaries.zip',
-             '%5BC2%5D%20IHO%20World%20Seas.zip',
-             '%5BC2%5D%20World%20EEZ.zip',
-             '%5BC4%5D%20FAO%20Maritime%20Areas.zip',
-             '%5BC4%5D%20Fishing%20Areas%20%28European%20commission%29.zip',
-             '%5BC5%5D%20Fishing%20Constraints.zip',
-             '%5BC5%5D%20Marine%20Protected%20Areas%20%28EEA%20Natura%202000%29.zip',
-             '%5BC6%5D%20ANFR%20Vessel%20List.zip',
-             '%5BC6%5D%20EU%20Fishing%20Vessels.zip',
-             '%5BE1%5D%20Ocean%20Conditions.zip',
-             '%5BE2%5D%20Weather%20Conditions.zip',
-             '%5BP1%5D%20AIS%20Data.zip',
-             '%5BP1%5D%20AIS%20Status%2C%20Codes%20and%20Types.zip',
-             '%5BP1%5D%20Brest%20Receiver.zip',
-             '%5BQ1%5D%20Integration%20Queries.zip']
+    links = sources if not args.bench_only else [
+            s['url'] for s in filter(lambda s: s['bench'], sources)]
 
     for link in links:
         url = f"{HOME}{link}?download=1"
