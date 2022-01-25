@@ -8,6 +8,9 @@ import pymonetdb
 import psycopg2
 import re
 
+MONET_ONLY = 'monet'
+PGRES_ONLY = 'postgres'
+
 parser = argparse.ArgumentParser(
     description='Maritime Geometric Data Loading (MonetDB Geo and '
                 'Postgres PostGIS)',
@@ -15,7 +18,8 @@ parser = argparse.ArgumentParser(
     "from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.")
 
 parser.add_argument('--system', type=str, required=False, default=None,
-                    help='System to load the data (default is both)')
+                    help='System to load the data (default is both)',
+                    choices=[MONET_ONLY, PGRES_ONLY])
 parser.add_argument('--database', type=str, required=False, default="maritime",
                     help='Name of the database to load the data (default is maritime)')
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
@@ -33,7 +37,7 @@ def main():
 
     print(f"using {pwd}/data/ instead of {GENERIC_PATH} in SQL scripts")
 
-    if args.system is None or args.system =="monet":
+    if args.system is None or args.system == MONET_ONLY:
         change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
         try:
             load_monetdb(scripts_dir)
@@ -42,7 +46,7 @@ def main():
         finally:
             set_generic_pwd_in_files(f"{scripts_dir}/monetdb") 
 
-    if args.system is None or args.system =="postgres":
+    if args.system is None or args.system == PGRES_ONLY:
         change_pwd_in_files(f"{scripts_dir}/postgres", data_dir)
         change_pwd_in_file(f"{scripts_dir}/load_psql.sh", data_dir)
         try:

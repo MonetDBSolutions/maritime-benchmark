@@ -17,8 +17,8 @@ from time import sleep
 # TODO: Change os.getcwd() to a "root directory" variable (maybe replacing data_dir var)
 # TODO: Delete results directory if the run had an exception
 
-MONET_ONLY = 'mdb'
-PGRES_ONLY = 'pgdb'
+MONET_ONLY = 'monet'
+PGRES_ONLY = 'postgres'
 
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',
