@@ -9,12 +9,15 @@ import psycopg2
 import re
 
 parser = argparse.ArgumentParser(
-    description='Maritime Geometric Data Loading (MonetDB Geo and Postgres PostGIS)',
-    epilog='''
-    This program loads the Maritime Geographic datasets benchmark from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.
-    ''')
-parser.add_argument('--system', type=str, help='System to load the data (default is both)', required=False, default=None)
-parser.add_argument('--database', type=str, help='Name of the database to load the data (default is maritime)', required=False, default="maritime")
+    description='Maritime Geometric Data Loading (MonetDB Geo and '
+                'Postgres PostGIS)',
+    epilog="This program loads the Maritime Geographic datasets benchmark "
+    "from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.")
+
+parser.add_argument('--system', type=str, required=False, default=None,
+                    help='System to load the data (default is both)')
+parser.add_argument('--database', type=str, required=False, default="maritime",
+                    help='Name of the database to load the data (default is maritime)')
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
                     help='Load only the datasets needed for geo-benchmark. '
                          'By default all Maritime data are loaded')
@@ -189,7 +192,9 @@ def load_postgres(scripts_dir):
         #Shapefile loading
         print(f"Loading Shapefiles")
         try:
-            subprocess.run(["sh", f"{scripts_dir}/load_psql.sh", f"{args.database}"], check=True)
+            subprocess.run(
+                ["sh", f"{scripts_dir}/load_psql.sh", f"{args.database}"],
+                check=True)
         except subprocess.CalledProcessError as msg:
             print(msg)
     else:

@@ -22,31 +22,34 @@ PGRES_ONLY = 'pgdb'
 
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',
-    epilog='''
-    This program loads and executes the Geographic data benchmark on MonetDB and PostGIS.
-    ''')
+    epilog='This program loads and executes the Geographic data '
+           'benchmark on MonetDB and PostGIS.')
 # Program arguments
-parser.add_argument('--data', type=str, help='Absolute path to the dataset directory', required=True, default=None)
-parser.add_argument('--scale', type=float, nargs='+', help='Benchmark scale factor(s) (only values < 1 allowed)',
-                    default=0)
+parser.add_argument('--data', type=str, required=True, default=None,
+                    help='Absolute path to the dataset directory')
+parser.add_argument('--scale', type=float, nargs='+', default=0,
+                    help='Benchmark scale factor(s) (only values < 1 allowed)')
 
-parser.add_argument('--dbfarm_monet', type=str,
-                    help='MonetDB database farm to be used in starting the server from the script', default=None)
-parser.add_argument('--dbfarm_psql', type=str,
-                    help='PostgreSQL database directory to be used in starting the server from the script',
-                    default=None)
+parser.add_argument('--dbfarm_monet', type=str, default=None,
+                    help='MonetDB'' database farm to be used in '
+                    'starting the server from the script')
+parser.add_argument('--dbfarm_psql', type=str, default=None,
+                    help='PostgreSQL database directory to be used in'
+                    'starting the server from the script')
 
-parser.add_argument('--database', type=str, help='Database to connect to (default is marine)', default='marine')
-parser.add_argument('--system', type=str, help='Database system to benchmark (default is both)', default=None)
+parser.add_argument('--database', type=str, default='marine',
+                    help='Database to connect to (default is marine)')
 
 # Switch (bool) arguments
-parser.add_argument('--debug', help='Turn on debugging log (default is off)', dest='debug', action='store_true')
-parser.add_argument('--export', help='Turn on exporting query tables after execution (default is off)', dest='export',
-                    action='store_true')
-parser.add_argument('--no-drop', help='Turn off dropping the data after execution (default is on)', dest='drop',
-                    action='store_false')
-parser.add_argument('--single-system', help='Choose to run the benchmark on only one db system (default both systems)',
-                    dest='system', choices=[MONET_ONLY, PGRES_ONLY]) 
+parser.add_argument('--debug', dest='debug', action='store_true',
+                    help='Turn on debugging log (default is off)')
+parser.add_argument('--export', dest='export', action='store_true',
+                    help='Turn on exporting query tables after execution (default is off)')
+parser.add_argument('--no-drop', dest='drop', action='store_false',
+                    help='Turn off dropping the data after execution (default is on)')
+parser.add_argument('--single-system', dest='system', choices=[MONET_ONLY, PGRES_ONLY],
+                    help='Choose to run the benchmark on only one db '
+                    'system (default both systems)') 
 
 args = parser.parse_args()
 
@@ -69,16 +72,16 @@ load_tables = {
                 "filename": "port.shp",
                 "srid": "4326"
             },
-            {
-                "tablename": "europe_maritime_boundaries",
-                "filename": "MBEULSIV1.shp",
-                "srid": "4258"
-            },
-            {
-                "tablename": "europe_coastline",
-                "filename": "Europe Coastline.shp",
-                "srid": "3035"
-            },
+            # {
+                # "tablename": "europe_maritime_boundaries",
+                # "filename": "MBEULSIV1.shp",
+                # "srid": "4258"
+            # },
+            # {
+                # "tablename": "europe_coastline",
+                # "filename": "Europe Coastline.shp",
+                # "srid": "3035"
+            # },
             {
                 "tablename": "fao_areas",
                 "filename": "FAO_AREAS.shp",
@@ -94,16 +97,15 @@ load_tables = {
                 "filename": "v_recode_fish_area_clean.shp",
                 "srid": "4326"
             },
-            {
-                "tablename": "fishing_interdiction",
-                "filename": "fishing_interdiction.shp",
-                "srid": "4326"
-            }
-            # ,
             # {
-            # "tablename":"world_eez",
-            # "filename":"eez.shp",
-            # "srid":"4326"
+                # "tablename": "fishing_interdiction",
+                # "filename": "fishing_interdiction.shp",
+                # "srid": "4326"
+            # },
+            # {
+                # "tablename":"world_eez",
+                # "filename":"eez.shp",
+                # "srid":"4326"
             # }
         ]
 }
@@ -156,9 +158,12 @@ results = {
     "psql": []
 }
 # CSV Header for performance comparison
-results_header = ['SF', 'Operation', 'Monet_Server_Time', 'Monet_Client_Time', 'PSQL_Server_Time', 'PSQL_Client_Time']
+results_header = ['SF', 'Operation', 
+                  'Monet_Server_Time', 'Monet_Client_Time',
+                  'PSQL_Server_Time', 'PSQL_Client_Time']
 # CSV Header for result comparison (floats)
-comparison_header_float = ['Monet_Result', 'PSQL_Result', 'Dif_Result', 'Relative_Difference']
+comparison_header_float = ['Monet_Result', 'PSQL_Result',
+                           'Dif_Result', 'Relative_Difference']
 # CSV Header for result comparison (bool)
 comparison_header_bool = ['Monet_Result', 'PSQL_Result', 'Same_Result']
 
@@ -204,8 +209,9 @@ class DatabaseHandler:
             sys.exit()
         return f.read().split(";")[:-1]
 
-    # Create a new CSV file with a subset of data from an input CSV, given a scale factor (only < 1 SF allowed)
-    # If the file already exists, use it. We currently don't delete the file after execution
+    # Create a new CSV file with a subset of data from an input CSV,
+    # given a scale factor (only < 1 SF allowed) If the file already
+    # exists, use it. We currently don't delete the file after execution
     def scale_csv(self, input_name, scale):
         if scale > 1:
             logger.warning("Scale factor must be less than 1, using original csv (SF 1)")
@@ -218,13 +224,14 @@ class DatabaseHandler:
                 self.record_number.append(sum(1 for l in f))
             return output_file_name
         input_file_name = f'{args.data}/{input_name}.csv'
-        with open(input_file_name, 'r') as input_file, open(output_file_name, 'w+') as output_file:
+        with open(input_file_name, 'r') as input_file, \
+             open(output_file_name, 'w+') as output_file:
             try:
                 input_lines = input_file.readlines()
                 records_scaled = int(len(input_lines) * scale)
                 self.record_number.append(records_scaled)
                 output_file.writelines(input_lines[0:records_scaled])
-                logger.debug(f"Number of records in scaled dataset '{input_name}': {records_scaled}")
+                logger.debug(f"Scaled umber of records '{input_name}': {records_scaled}")
             except IOError as msg:
                 logger.warning("cutcsv() operation failed, using original csv (SF 1)")
                 logger.exception(msg)
@@ -286,28 +293,35 @@ class DatabaseHandler:
                 filename = self.scale_csv(csv_t["filename"], self.cur_scale)
             else:
                 filename = f'{args.data}/{csv_t["filename"]}.csv'
+            
             start = timer()
             if not self.copy_into(cur, csv_t["tablename"], csv_t["columns"], filename):
                 continue
             server_time = self.get_server_query_time(cur)
 
+            # handle explicitly 'timestamp' column
             if "timestamp" in csv_t:
                 if not self.add_timestamp(cur, csv_t["tablename"], csv_t["timestamp"]):
                     continue
                 server_time += self.get_server_query_time(cur)
+            # handle excplicitly 'geom' column 
             if "geom" in csv_t:
                 if not self.add_geom(cur, csv_t["tablename"], csv_t["geom"]):
                     continue
                 server_time += self.get_server_query_time(cur)
 
             client_time = timer() - start
-            self.register_result(self.system, self.cur_scale, f'CSV_{csv_t["tablename"]}', server_time, client_time)
+            self.register_result(
+                self.system, self.cur_scale, f'CSV_{csv_t["tablename"]}',
+                server_time, client_time)
             total_time += client_time
             if "scalable" in csv_t and self.cur_scale > 0:
                 logger.debug(
-                    "CLIENT: Loaded %s_%s in %6.3f seconds" % (csv_t["tablename"], self.cur_scale, client_time))
+                    "CLIENT: Loaded %s_%s in %6.3f seconds"
+                    % (csv_t["tablename"], self.cur_scale, client_time))
             else:
-                logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (filename, client_time))
+                logger.debug("CLIENT: Loaded %s in %6.3f seconds"
+                             % (filename, client_time))
         return total_time
 
     def get_server_query_time(self, cur):
@@ -336,19 +350,24 @@ class DatabaseHandler:
                 continue
             start = timer()
             if not self.execute_query(cur, q):
-                self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id-1]["q_name"]}', -1,
-                                     -1)
+                self.register_result(
+                    self.system, self.cur_scale,
+                    f'Q{query_id}_{queries[query_id-1]["q_name"]}',
+                    -1, -1)
                 query_id += 1
                 continue
             client_time = timer() - start
             server_time = self.get_server_query_time(cur)
             total_time += client_time
 
-            self.register_result(self.system, self.cur_scale, f'Q{query_id}_{queries[query_id-1]["q_name"]}',
+            self.register_result(self.system, self.cur_scale, 
+                                 f'Q{query_id}_{queries[query_id-1]["q_name"]}',
                                  server_time, client_time)
-            logger.debug("CLIENT: Executed query %s in %6.3f seconds" % (query_id, client_time))
+            logger.debug("CLIENT: Executed query %s in %6.3f seconds"
+                         % (query_id, client_time))
             if server_time > 0:
-                logger.debug("SERVER: Executed query %s in %6.3f seconds" % (query_id, server_time))
+                logger.debug("SERVER: Executed query %s in %6.3f seconds"
+                             % (query_id, server_time))
             query_id += 1
         logger.info("Executed all queries in %6.3f seconds" % total_time)
         self.register_result(self.system, self.cur_scale, "All queries", -1, total_time)
@@ -392,7 +411,12 @@ class MonetHandler(DatabaseHandler):
         return conn
 
     def get_version(self, cur):
-        if not self.execute_query(cur, "select name, value from sys.env() where name in ('monet_version','revision');"):
+        query = """
+            SELECT name, value
+            FROM sys.env()
+            WHERE name IN ('monet_version', 'revision');
+            """
+        if not self.execute_query(cur, query):
             return "0"
         result = cur.fetchall()
         for r in result:
@@ -402,9 +426,14 @@ class MonetHandler(DatabaseHandler):
                 self.monet_revision = r[1]
 
     def get_server_query_time(self, cur):
-        if not self.execute_query(cur, f"select extract(epoch from t) "
-                                       f"from (select max(stop)-max(start) as t from querylog_history) "
-                                       f"as a;"):
+        query = """
+            SELECT extract(epoch FROM t)
+            FROM (
+                SELECT max(stop) - max(start) AS t
+                FROM querylog_history
+            ) AS a;
+            """
+        if not self.execute_query(cur, query):
             return -1
         result = cur.fetchone()
         if result is not None:
@@ -416,33 +445,56 @@ class MonetHandler(DatabaseHandler):
         # TODO: Is it worth it to count the number of lines for the COPY INTO to be faster? -> Time it
         with open(filename) as f:
             record_number = sum(1 for l in f)
-        query = f'COPY {record_number} OFFSET 2 RECORDS INTO {tablename} ({columns}) FROM \'{filename}\' \
-        ({columns}) DELIMITERS \',\',\'\\n\',\'\"\' NULL AS \'\';'
+        query = f"""
+            COPY {record_number} OFFSET 2 RECORDS 
+            INTO {tablename} 
+                ({columns}) 
+            FROM \'{filename}\'
+                ({columns}) 
+            DELIMITERS \',\',\'\\n\',\'\"\' 
+            NULL AS \'\';
+            """
         return self.execute_query(cur, query)
 
     def add_geom(self, cur, tablename, attribute):
-        return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
+        query = f"""
+            UPDATE {tablename}
+            SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);
+            """ 
+        return self.execute_query(cur, query)
 
     def add_timestamp(self, cur, tablename, attribute):
-        return self.execute_query(cur, f'UPDATE {tablename} SET t = epoch(cast({attribute} as int));')
+        query = f"""
+            UPDATE {tablename}
+            SET t = epoch(cast({attribute} AS int));
+            """
+        return self.execute_query(cur, query)
 
     def load_shp(self, cur):
         total_time = 0
         for csv_t in load_tables["shape_tables"]:
-            query = f'call shpload(\'{args.data}/{csv_t["filename"]}\',\'bench_geo\',\'{csv_t["tablename"]}\');'
+            query = f"""call shpload(
+                \'{args.data}/{csv_t["filename"]}\',
+                \'bench_geo\', \'{csv_t["tablename"]}\');"""
             start = timer()
             try:
                 cur.execute(query)
             except pymonetdb.DatabaseError as msg:
                 logger.exception(msg)
-                self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, -1)
+                self.register_result('monet', self.cur_scale, 
+                                     f'SHP_{csv_t["tablename"]}',
+                                     -1, -1)
             else: 
                 client_time = timer() - start
                 server_time = self.get_server_query_time(cur)
                 total_time += client_time
-                self.register_result('monet', self.cur_scale, f'SHP_{csv_t["tablename"]}', server_time, client_time)
-                logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
-                logger.debug("SERVER: Loaded %s in %6.3f seconds" % (csv_t["tablename"], server_time))
+                self.register_result('monet', self.cur_scale,
+                                     f'SHP_{csv_t["tablename"]}',
+                                     server_time, client_time)
+                logger.debug("CLIENT: Loaded %s in %6.3f seconds"
+                             % (csv_t["tablename"], client_time))
+                logger.debug("SERVER: Loaded %s in %6.3f seconds"
+                             % (csv_t["tablename"], server_time))
         return total_time
 
 
@@ -490,30 +542,52 @@ class PostgresHandler(DatabaseHandler):
         return -1
 
     def copy_into(self, cur, tablename, columns, filename):
-        query = f'COPY {tablename} ({columns}) FROM \'{filename}\' delimiter \',\' csv HEADER;'
+        query = f"""
+            COPY {tablename}
+                ({columns})
+            FROM \'{filename}\'
+            DELIMITER \',\' csv HEADER;
+            """
         return self.execute_query(cur, query)
 
     def add_geom(self, cur, tablename, attribute):
-        return self.execute_query(cur, f'UPDATE {tablename} SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);')
+        query = f"""
+                UPDATE {tablename}
+                SET geom = ST_SetSRID(ST_MakePoint({attribute}),4326);
+                """
+        return self.execute_query(cur, query)
 
     def add_timestamp(self, cur, tablename, attribute):
-        return self.execute_query(cur, f'UPDATE {tablename} SET t = to_timestamp({attribute});')
+        query = f"""
+                UPDATE {tablename} SET t = to_timestamp({attribute});
+                """
+        return self.execute_query(cur, query)
 
     def load_shp(self, cur):
         total_time = 0
         for csv_t in load_tables["shape_tables"]:
-            query = f'shp2pgsql -h && shp2pgsql -I -s {csv_t["srid"]} \'{args.data}/{csv_t["filename"]}\' bench_geo.{csv_t["tablename"]} | psql  -d {args.database};'
+            cmd = f"""
+                shp2pgsql -h && \
+                shp2pgsql -I -s {csv_t["srid"]} \
+                    \'{args.data}/{csv_t["filename"]}\' \
+                    bench_geo.{csv_t["tablename"]} \
+                | psql  -d {args.database};"""
             start = timer()
             try:
-                check_output(query, shell=True, stderr=STDOUT)
+                check_output(cmd, shell=True, stderr=STDOUT)
             except CalledProcessError as msg:
                 logger.exception(msg)
-                self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, -1)
+                self.register_result('psql', self.cur_scale,
+                                     f'SHP_{csv_t["tablename"]}',
+                                     -1, -1)
             else:
                 client_time = timer() - start
                 total_time += client_time
-                self.register_result('psql', self.cur_scale, f'SHP_{csv_t["tablename"]}', -1, client_time)
-                logger.debug("CLIENT: Loaded %s in %6.3f seconds" % (csv_t["tablename"], client_time))
+                self.register_result('psql', self.cur_scale,
+                                     f'SHP_{csv_t["tablename"]}',
+                                     -1, client_time)
+                logger.debug("CLIENT: Loaded %s in %6.3f seconds" 
+                             % (csv_t["tablename"], client_time))
         return total_time
 
 
@@ -697,7 +771,10 @@ class PostgresServer:
                 logger.error(sys.exc_info())
                 return False
 
-        cmd = [os.path.join(prefix, 'pg_ctl'), '-D', str(dbfarm), '-l', f'{dbfarm}/logfile', 'start']
+        cmd = [os.path.join(prefix, 'pg_ctl'),
+               '-D', str(dbfarm),
+               '-l', f'{dbfarm}/logfile',
+               'start']
         try:
             check_output(cmd)
             logger.info('started dbfarm %s' % dbfarm)
@@ -711,7 +788,10 @@ class PostgresServer:
         return True
 
     def farm_down(self, dbfarm, prefix='') -> bool:
-        cmd = [os.path.join(prefix, 'pg_ctl'), '-D', str(dbfarm), '-l', f'{dbfarm}/logfile', 'stop']
+        cmd = [os.path.join(prefix, 'pg_ctl'), 
+               '-D', str(dbfarm),
+               '-l', f'{dbfarm}/logfile',
+               'stop']
         try:
             check_output(cmd)
             logger.info('stopped dbfarm %s' % dbfarm)
@@ -836,13 +916,18 @@ def write_performance_results(result_dir, timestamp, dbsys):
 
 
 def write_performance_results_metadata(result_dir, timestamp, monet_handler, psql_handler):
-    with open(f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}_meta.txt', 'w', encoding='UTF8') as f:
+    with open(
+        f'{result_dir}/result_{timestamp.strftime(FILE_TIME_FORMAT)}_meta.txt',
+        'w', encoding='UTF8'
+    ) as f:
         if monet_handler: 
-            f.write(f"MonetDB server version {monet_handler.monet_version} (hg id {monet_handler.monet_revision})\n")
+            f.write(f"MonetDB server version{monet_handler.monet_version}\n")
+            f.write(f"(hg id {monet_handler.monet_revision})\n")
             f.write(f"pymonetdb client version {pymonetdb.__version__}\n")
        
         if psql_handler:
-            f.write(f"Postgres server version {psql_handler.psql_version} with PostGIS extension version {psql_handler.postgis_version}\n")
+            f.write(f"Postgres server version {psql_handler.psql_version}\n")
+            f.write(f"with PostGIS extension version {psql_handler.postgis_version}\n")
             f.write(f"psycopg2 client version {psycopg2.__version__}\n\n")
         
         f.write(f"Distance is calculated with the sphere model\n\n")
@@ -941,8 +1026,9 @@ def compare_query_results(output_dir, cur_scale):
         if file.endswith(f"{cur_scale}.csv"):
             if os.path.isfile(directory_psql + file) and queries[i]["comparison"] is not None:
                 logger.debug(f"Comparing query result file {file}")
-                with open(f'{directory_monet}/{file}', 'r') as monet_file, open(f'{directory_psql}/{file}','r') as psql_file, \
-                        open(f'{output_dir}/query_comparison/{file}', 'w') as compare_file:
+                with open(f'{directory_monet}/{file}', 'r') as monet_file,\
+                     open(f'{directory_psql}/{file}','r') as psql_file,\
+                     open(f'{output_dir}/query_comparison/{file}', 'w') as compare_file:
                     monet_reader = csv.reader(monet_file, delimiter=',')
                     psql_reader = csv.reader(psql_file, delimiter=',')
                     compare_writer = csv.writer(compare_file, delimiter=',')
