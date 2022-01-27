@@ -12,6 +12,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
                     help='Load only the datasets needed for geo-benchmark. '
                          'By default all Maritime data are loaded')
+parser.add_argument('--target', required=False, default='data',
+                    help='Relative path for the directory where the '
+                         'data will be placed (default \'data\')')
+
 args = parser.parse_args() 
 
 # 'bench' key describes if the dataset is required by the Geom benchmark
@@ -40,13 +44,13 @@ sources = [
 def main():
     pwd = os.getcwd()
 
-    datadir = os.path.join(pwd + "/data")
+    datadir = os.path.abspath(args.target)
 
     if os.path.exists(datadir):
         print(f"ERROR: {datadir} already exists")
         exit(1)
     
-    os.mkdir(datadir)
+    os.makedirs(datadir)
     download_data(datadir)
     print("data are downloaded")
 
