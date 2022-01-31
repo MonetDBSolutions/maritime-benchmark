@@ -47,6 +47,12 @@ def main():
             set_generic_pwd_in_files(f"{scripts_dir}/monetdb") 
 
     if args.system is None or args.system == PGRES_ONLY:
+       
+        if args.bench_only:
+            print("ERROR: --benchmark-set-only is not supported for postgres")
+            print("No data are loaded in postgres")
+            return
+
         change_pwd_in_files(f"{scripts_dir}/postgres", data_dir)
         change_pwd_in_file(f"{scripts_dir}/load_psql.sh", data_dir)
         try:
