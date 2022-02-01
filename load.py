@@ -17,6 +17,8 @@ parser = argparse.ArgumentParser(
     epilog="This program loads the Maritime Geographic datasets benchmark "
     "from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.")
 
+parser.add_argument('--data', type=str, required=False, default='data',
+                    help='Path to the data (default \'data\')')
 parser.add_argument('--system', type=str, required=False, default=None,
                     help='System to load the data (default is both)',
                     choices=[MONET_ONLY, PGRES_ONLY])
@@ -30,12 +32,10 @@ args = parser.parse_args()
 GENERIC_PATH='/path/to/data'
 
 def main():
-    pwd = os.getcwd()
+    data_dir = os.path.abspath(args.data)
+    scripts_dir = os.path.abspath('load_scripts')
 
-    data_dir = os.path.join(pwd + "/data")
-    scripts_dir = os.path.join(pwd + "/load_scripts")
-
-    print(f"using {pwd}/data/ instead of {GENERIC_PATH} in SQL scripts")
+    print(f"using {data_dir} instead of {GENERIC_PATH} in SQL scripts")
 
     if args.system is None or args.system == MONET_ONLY:
         change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
