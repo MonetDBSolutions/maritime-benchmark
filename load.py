@@ -7,6 +7,7 @@ import argparse
 import pymonetdb
 import psycopg2
 import re
+import sys
 
 MONET_ONLY = 'monet'
 PGRES_ONLY = 'postgres'
@@ -27,6 +28,8 @@ parser.add_argument('--database', type=str, required=False, default="maritime",
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
                     help='Load only the datasets needed for geo-benchmark. '
                          'By default all Maritime data are loaded')
+parser.add_argument('--scale', type=float, default=None, required=False,
+                    help='Load the data after scaling them in scale')
 args = parser.parse_args()
 
 GENERIC_PATH='/path/to/data'
@@ -38,13 +41,20 @@ def main():
     print(f"using {data_dir} instead of {GENERIC_PATH} in SQL scripts")
 
     if args.system is None or args.system == MONET_ONLY:
+        
+        if args.scale:
+            use_scaled_files(f"{scripts_dir}/monetdb", args.scale)
+
         change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
+       
         try:
-            load_monetdb(scripts_dir)
+            # load_monetdb(scripts_dir)
+            pass
         except Exception as e:
             print(e)
         finally:
             set_generic_pwd_in_files(f"{scripts_dir}/monetdb") 
+            clean_scales(f"{scripts_dir}/monetdb") 
 
     if args.system is None or args.system == PGRES_ONLY:
        
@@ -65,6 +75,43 @@ def main():
 
 # Change all instances of /path/to/data
 # with the relevant path.
+
+def use_scaled_files(scripts_dir, sf):
+    entries = os.scandir(scripts_dir)
+    for e in entries:
+        if e.is_dir():
+            use_scaled_files(e.path, sf)
+        else:
+            append_scale(f"{e.path}", sf)
+
+def append_scale(filename, sf):
+    scale_tag = f'_SF_{str(sf)}'
+    rgx = re.compile(r'\.csv')
+    with fileinput.input(filename, inplace=True) as f:
+        for line in f:
+            m = rgx.search(line) 
+            if m:
+                line = line[:m.start()] + scale_tag + line[m.start():]
+            print(line, end='')
+
+def clean_scales(scripts_dir):
+    entries = os.scandir(scripts_dir)
+    for e in entries:
+        if e.is_dir():
+            clean_scales(e.path)
+        else:
+            remove_scale(f"{e.path}")
+
+def remove_scale(filename):
+    rgx = re.compile(r'_SF_[0-9\.]*csv')
+    k = None
+    with fileinput.input(filename, inplace=True) as f:
+        for line in f:
+            m = rgx.search(line) 
+            if m:
+                line = line[:m.start()] + ".csv" + line[m.end():]
+            print(line, end='')
+
 def change_pwd_in_files(path, data_dir):
     entries = os.scandir(path)
     for e in entries:
