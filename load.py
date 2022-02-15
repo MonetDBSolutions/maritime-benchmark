@@ -41,10 +41,12 @@ def main():
     print(f"using {data_dir} instead of {GENERIC_PATH} in SQL scripts")
 
     if args.system is None or args.system == MONET_ONLY:
-        
-        if args.scale:
-            use_scaled_files(f"{scripts_dir}/monetdb", args.scale)
+        # get a tuple with all monet files
+        monet_scripts_root = scripts_dir + '/monetdb'
+        monet_scripts = tuple(fsTree(monet_scripts_root, '.sql')) 
 
+        if args.scale:
+            append_scale(monet_scripts, args.scale)
         change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
        
         try:
@@ -53,8 +55,8 @@ def main():
         except Exception as e:
             print(e)
         finally:
-            set_generic_pwd_in_files(f"{scripts_dir}/monetdb") 
-            clean_scales(f"{scripts_dir}/monetdb") 
+            set_generic_pwd_in_files(f"{scripts_dir}/monetdb")
+            remove_scale(monet_scripts) 
 
     if args.system is None or args.system == PGRES_ONLY:
        
@@ -76,13 +78,13 @@ def main():
 # Change all instances of /path/to/data
 # with the relevant path.
 
-def use_scaled_files(scripts_dir, sf):
-    entries = os.scandir(scripts_dir)
+def fsTree(path, ext):
+    entries = os.scandir(path)
     for e in entries:
         if e.is_dir():
-            use_scaled_files(e.path, sf)
-        else:
-            append_scale(f"{e.path}", sf)
+            yield from fsTree(e.path, ext)
+        elif os.path.splitext(e.name)[1] == ext:
+            yield e.path
 
 def append_scale(filename, sf):
     scale_tag = f'_SF_{str(sf)}'
@@ -94,17 +96,8 @@ def append_scale(filename, sf):
                 line = line[:m.start()] + scale_tag + line[m.start():]
             print(line, end='')
 
-def clean_scales(scripts_dir):
-    entries = os.scandir(scripts_dir)
-    for e in entries:
-        if e.is_dir():
-            clean_scales(e.path)
-        else:
-            remove_scale(f"{e.path}")
-
 def remove_scale(filename):
     rgx = re.compile(r'_SF_[0-9\.]*csv')
-    k = None
     with fileinput.input(filename, inplace=True) as f:
         for line in f:
             m = rgx.search(line) 
