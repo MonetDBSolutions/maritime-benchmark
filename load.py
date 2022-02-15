@@ -47,33 +47,37 @@ def main():
 
         if args.scale:
             append_scale(monet_scripts, args.scale)
-        change_pwd_in_files(f"{scripts_dir}/monetdb", data_dir)
-       
+        set_pwd(monet_scripts, data_dir) 
+
         try:
-            # load_monetdb(scripts_dir)
-            pass
+            load_monetdb(scripts_dir)
         except Exception as e:
             print(e)
         finally:
-            set_generic_pwd_in_files(f"{scripts_dir}/monetdb")
+            set_generic_pwd(monet_scripts)
             remove_scale(monet_scripts) 
 
     if args.system is None or args.system == PGRES_ONLY:
-       
+        # get a tuple with all postgres files
+        postgres_scripts_root = scripts_dir + '/postgres'      
+        postgres_scripts = tuple(fsTree(postgres_scripts_root, '.sql'))
+        # append the load script for the shapefiles 
+        postgres_scripts += tuple([f"{scripts_dir}/load_psql.sh"])
+
         if args.bench_only:
             print("ERROR: --benchmark-set-only is not supported for postgres")
             print("No data are loaded in postgres")
             return
+        set_pwd(postgres_scripts, data_dir)
 
-        change_pwd_in_files(f"{scripts_dir}/postgres", data_dir)
-        change_pwd_in_file(f"{scripts_dir}/load_psql.sh", data_dir)
         try:
             load_postgres(scripts_dir)
+            pass
         except Exception as e:
             print(e)
         finally:
-            set_generic_pwd_in_files(f"{scripts_dir}/postgres")
-            set_generic_pwd_in_file(f"{scripts_dir}/load_psql.sh")
+            pass
+            set_generic_pwd(postgres_scripts)
 
 # Change all instances of /path/to/data
 # with the relevant path.
@@ -105,34 +109,16 @@ def remove_scale(filename):
                 line = line[:m.start()] + ".csv" + line[m.end():]
             print(line, end='')
 
-def change_pwd_in_files(path, data_dir):
-    entries = os.scandir(path)
-    for e in entries:
-        if e.is_dir():
-            change_pwd_in_files(e.path, data_dir)
-        else:
-            change_pwd_in_file(f"{e.path}", data_dir)
-
-
-def change_pwd_in_file(filename, data_dir):
+def set_pwd(filename, data_dir):
     with fileinput.input(filename, inplace=True) as f:
         for line in f:
             if GENERIC_PATH in line:
                 line = line.replace(GENERIC_PATH, data_dir)
             print(line, end='')
 
-def set_generic_pwd_in_files(path):
-    entries = os.scandir(path)
-    for e in entries:
-        if e.is_dir():
-            set_generic_pwd_in_files(f"{e.path}")
-        else:
-            set_generic_pwd_in_file(f"{e.path}")
-
-def set_generic_pwd_in_file(filename):
+def set_generic_pwd(filename):
     # matches any '/User/blah/blah/blah/[' string 
     rgx = '\/.*\['
-
     with fileinput.input(filename, inplace=True) as f:
         for line in f:
             m = re.search(rgx, line)
