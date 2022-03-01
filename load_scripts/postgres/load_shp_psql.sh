@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 db_name="maritime"
 
 if [ $# -eq 1 ]; then
