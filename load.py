@@ -63,12 +63,10 @@ def main():
         postgres_scripts_root = scripts_dir + '/postgres'
         postgres_scripts = tuple(fsTree(postgres_scripts_root, '.sql'))
         # append the load script for the shapefiles
-        postgres_scripts += tuple([f"{scripts_dir}/load_psql.sh"])
+        postgres_scripts += tuple([f"{scripts_dir}/postgres/load_shp_psql.sh"])
 
-        if args.bench_only:
-            print("ERROR: --benchmark-set-only is not supported for postgres")
-            print("No data are loaded in postgres")
-            return
+        if args.scale:
+            append_scale(postgres_scripts, args.scale)
         set_pwd(postgres_scripts, data_dir)
 
         try:
@@ -77,8 +75,8 @@ def main():
         except Exception as e:
             print(e)
         finally:
-            pass
             set_generic_pwd(postgres_scripts)
+            remove_scale(postgres_scripts)
 
 
 def fsTree(path, ext):
@@ -171,12 +169,12 @@ def load_monetdb(scripts_dir):
                 {'file': "environmental/weather_data.sql", 'bench': False}
             ]},
             {'schema': 'vessel_data', 'scripts': [
-                {'file': "anfr_vessel_list.sql", 'bench': False},
-                {'file': "aton.sql", 'bench': False},
-                {'file': "eu_fishing_vessels.sql", 'bench': False},
-                {'file': "mmsi_country_codes.sql", 'bench': False},
-                {'file': "navigational_status.sql", 'bench': False},
-                {'file': "ship_types.sql", 'bench': False}
+                {'file': "vessel/anfr_vessel_list.sql", 'bench': False},
+                {'file': "vessel/aton.sql", 'bench': False},
+                {'file': "vessel/eu_fishing_vessels.sql", 'bench': False},
+                {'file': "vessel/mmsi_country_codes.sql", 'bench': False},
+                {'file': "vessel/navigational_status.sql", 'bench': False},
+                {'file': "vessel/ship_types.sql", 'bench': False}
             ]}
         ]
 
@@ -221,23 +219,59 @@ def load_postgres(scripts_dir):
         cur = conn.cursor()
         # Turn on postgis
         execute_query(cur, "CREATE EXTENSION postgis;")
-        load_files = ["navigation_data.sql",
-                      "vessel_data.sql",
-                      "environmental_data.sql"]
-        for file in load_files:
-            queries = open_and_split_sql_file(f"{scripts_dir}/postgres/{file}")
-            print(f"Loading file {file}")
-            if queries is None:
-                print(f"Could not read queries in {scripts_dir}/postgres/")
-                return 0
-            for q in queries:
-                if not execute_query(cur, q):
+
+        schemas_desc = [
+            {'schema': 'ais_data', 'scripts': [
+                {'file': "navigation/dynamic_sar.sql", 'bench': False},
+                {'file': "navigation/dynamic_aton.sql", 'bench': False},
+                {'file': "navigation/static_ships.sql", 'bench': False},
+                {'file': "navigation/dynamic_ships.sql", 'bench': True}
+            ]},
+            {'schema': 'environment_data', 'scripts': [
+                {'file': "environmental/ocean_conditions.sql", 'bench': False},
+                {'file': "environmental/weather_data.sql", 'bench': False}
+            ]},
+            {'schema': 'vessel_data', 'scripts': [
+                {'file': "vessel/anfr_vessel_list.sql", 'bench': False},
+                {'file': "vessel/aton.sql", 'bench': False},
+                {'file': "vessel/eu_fishing_vessels.sql", 'bench': False},
+                {'file': "vessel/mmsi_country_codes.sql", 'bench': False},
+                {'file': "vessel/navigational_status.sql", 'bench': False},
+                {'file': "vessel/ship_types.sql", 'bench': False}
+            ]}
+        ]
+
+        for sd in schemas_desc:
+            queries = []
+
+            # first clear schema
+            queries.append(f"DROP SCHEMA IF EXISTS {sd['schema']} CASCADE;")
+            queries.append(f"CREATE SCHEMA IF NOT EXISTS {sd['schema']};")
+
+            # load all the data through the sql scripts
+            for s in sd['scripts']:
+
+                # excluding {'bench': 'false'} ones when --benchmark-set-only
+                if args.bench_only and not s['bench']:
+                    print(f"File {s['file']} is not required for the benchmark. Skiping!")
+                    continue
+
+                # read and split the file to individual queries
+                queries += open_and_split_sql_file(
+                    f"{scripts_dir}/postgres/{s['file']}")
+                print(f"Loading file {s['file']}")
+                if queries is None:
+                    print(f"Could not read queries in {scripts_dir}/postgres/")
                     return 0
+
+                for q in queries:
+                    execute_query(cur, q)
+
         # Shapefile loading
         print(f"Loading Shapefiles")
         try:
             subprocess.run(
-                ["sh", f"{scripts_dir}/load_psql.sh", f"{args.database}"],
+                ["sh", f"{scripts_dir}/postgres/load_shp_psql.sh", f"{args.database}"],
                 check=True)
         except subprocess.CalledProcessError as msg:
             print(msg)
