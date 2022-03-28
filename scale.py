@@ -53,9 +53,6 @@ def main():
                 if not os.path.exists(directory):
                     logger.info(f'Creating directory {directory}')
                     os.makedirs(directory)
-                # create the scaled file
-                fd = os.open(scaled_file, os.O_CREAT)
-                os.close(fd)
            
             # scale the file
             scaleCSV(f'{args.data}/{file}', scaled_file, sf)
