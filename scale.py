@@ -8,9 +8,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--data', type=str, default=os.getcwd()+'/data',
                     help='Absolute path to the dataset directory')
-parser.add_argument('--scale', type=float, nargs='+', default=0,
-                    help='Scale factors (only values < 1 allowed)',
-                    required=True)
+parser.add_argument('--scale', type=float, nargs='+', required=True,
+                    help='Scale factors (only values < 1 allowed)')
 parser.add_argument('--target', type=str, default=os.getcwd()+'/gen',
                     help='Path to the directory where the scaled '
                     'datasets will be placed')
