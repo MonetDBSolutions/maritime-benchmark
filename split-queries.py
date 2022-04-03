@@ -32,6 +32,8 @@ def main():
     with open(args.file, 'r') as queries_file:
         # split the queries on ';' and exclude the empty last one
         queries = queries_file.read().split(';')[:-1]
+        # add ending ';' in the queries since they are removed from split
+        queries = [q+';' for q in queries]
         # save every query to a new file
         for i in range(len(queries)):
             if args.print: 
