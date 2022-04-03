@@ -12,11 +12,11 @@ import sys
 MONET_ONLY = 'monet'
 PGRES_ONLY = 'postgres'
 
-parser = argparse.ArgumentParser(
-    description='Maritime Geometric Data Loading (MonetDB Geo and '
-                'Postgres PostGIS)',
-    epilog="This program loads the Maritime Geographic datasets benchmark "
-    "from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.")
+intro = """
+        This program loads the Maritime Geographic datasets benchmark 
+        from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.
+        """
+parser = argparse.ArgumentParser(description=intro)
 
 parser.add_argument('--data', type=str, required=False, default='data',
                     help='Path to the data (default \'data\')')
@@ -27,9 +27,10 @@ parser.add_argument('--database', type=str, required=False, default="maritime",
                     help='Name of the database to load the data (default is maritime)')
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
                     help='Load only the datasets needed for geo-benchmark. '
-                         'By default all Maritime data are loaded')
+                         'By default all Maritime datasets are loaded')
 parser.add_argument('--scale', type=float, default=None, required=False,
-                    help='Load the data after scaling them in scale')
+                    help='Scale factor to be used in the dataset before '
+                         'loading (only values < 1 allowed)')
 args = parser.parse_args()
 
 GENERIC_PATH = '/path/to/data'

@@ -4,10 +4,17 @@ import argparse
 import logging
 import os
 
-parser = argparse.ArgumentParser()
+intro = """
+        This script scales the Zenodo maritime AIS data according to the
+        scale factor given. Multiple scale factors could be provided in
+        a single run. The files to be scaled are hardcoded in the script
+        for the time being.
+        """
+
+parser = argparse.ArgumentParser(description=intro)
 
 parser.add_argument('--data', type=str, default=os.getcwd()+'/data',
-                    help='Absolute path to the dataset directory')
+                    help='Path to the dataset directory')
 parser.add_argument('--scale', type=float, nargs='+', required=True,
                     help='Scale factors (only values < 1 allowed)')
 parser.add_argument('--target', type=str, default=os.getcwd()+'/gen',

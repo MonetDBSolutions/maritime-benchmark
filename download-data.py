@@ -7,14 +7,20 @@ import urllib
 import zipfile
 import requests
 import argparse
-    
-parser = argparse.ArgumentParser()
+   
+intro = """
+        This script downloads and unzips the full Zenodo Maritme dataset
+        (record id: 1167595) from the web. If you are interested in the
+        Monet maritime benchmark 
+        """
+
+parser = argparse.ArgumentParser(description=intro)
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
-                    help='Load only the datasets needed for geo-benchmark. '
+                    help='Load only the datasets needed for MonetDB geom module. '
                          'By default all Maritime data are loaded')
 parser.add_argument('--target', required=False, default='data',
-                    help='Relative path for the directory where the '
-                         'data will be placed (default \'data\')')
+                    help='Path to the directory where the data will be'
+                         'placed (default \'data\')')
 
 args = parser.parse_args() 
 

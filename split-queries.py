@@ -15,8 +15,8 @@ parser.add_argument('--file', type=str, required=True,
 parser.add_argument('--target', type=str, default=os.getcwd()+'/gen/queries',
                     help='Path to the directory where the split '
                     'queries will be placed')
-parser.add_argument('--print-queries', dest='print', type=bool, 
-                    default=False, help='Print the queries to the log')
+parser.add_argument('--print-queries', dest='print', action='store_true',
+                    help='Print the queries to the log')
 
 args = parser.parse_args()
 logger = logging.getLogger(__name__)
