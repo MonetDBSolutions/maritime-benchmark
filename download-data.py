@@ -66,7 +66,7 @@ def download_data(datadir):
             s['url'] for s in filter(lambda s: s['bench'], sources)]
 
     for link in links:
-        url = f"{HOME}{link}?download=1"
+        url = f"{HOME}{link['url']}?download=1"
         print(f'downloading: {url}')
 
         for i in range(0, 5):
@@ -83,7 +83,7 @@ def download_data(datadir):
         sz = int(r.headers.get('content-length', 0))
         print(f"file size: {round(sz/1024,1)} kiB")
 
-        filename = urllib.parse.unquote(link)
+        filename = urllib.parse.unquote(link['url'])
         _zipLoc = f"{datadir}/{filename}"
         print(f"writing to {_zipLoc}")
         with open(_zipLoc, 'wb') as _zip:
