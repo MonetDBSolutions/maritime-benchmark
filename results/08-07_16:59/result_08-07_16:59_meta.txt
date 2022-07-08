@@ -1,0 +1,9 @@
+Benchmark run executed on MacBook Pro (14-inch, 2021) Monterey, Apple M1 Pro, 16GB memory
+
+MonetDB server version11.44.0
+(hg id 6ca55805d7cd+)
+pymonetdb client version 1.4.0
+Postgres server version 14.2
+with PostGIS extension version 3.2.1
+psycopg2 client version 2.9.1 (dt dec pq3 ext lo64)
+

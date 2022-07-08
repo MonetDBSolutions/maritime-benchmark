@@ -1,3 +1,6 @@
 .DS_Store
 data
-results
+.vscode
+data_bench
+old
+sql/deliverable_queries
