@@ -87,31 +87,6 @@ queries = [
         "q_num": 19,
         "q_name": "get_vessels_polygon5_proj3035",
         "comparison": "bool"
-    },
-    {
-        "q_num": 20,
-        "q_name": "get_vessels_polygon1_geodetic",
-        "comparison": "bool"
-    },
-    {
-        "q_num": 21,
-        "q_name": "get_vessels_polygon2_geodetic",
-        "comparison": "bool"
-    },
-    {
-        "q_num": 22,
-        "q_name": "get_vessels_polygon3_geodetic",
-        "comparison": "bool"
-    },
-    {
-        "q_num": 23,
-        "q_name": "get_vessels_polygon4_geodetic",
-        "comparison": "bool"
-    },
-    {
-        "q_num": 24,
-        "q_name": "get_vessels_polygon5_geodetic",
-        "comparison": "bool"
     }
 ]
 
