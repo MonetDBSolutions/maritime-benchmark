@@ -50,7 +50,7 @@ FROM (
             AND timestamp '2015-09-30 22:00:01.000000' + INTERVAL '183' DAY 
 ) AS q;
 -- Query 11a: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection)
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE   [q1.geom3035] 
         ST_Intersects_NoIndex
@@ -65,7 +65,7 @@ WHERE   [q1.geom3035]
                     )
                 ,3035)];
 -- Query 11b: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection)
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE   [q1.geom3035] 
         ST_Intersects_NoIndex
@@ -81,7 +81,7 @@ WHERE   [q1.geom3035]
                     )
                 ,3035)];
 -- Query 11c: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection)
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE   [q1.geom3035] 
         ST_Intersects_NoIndex
@@ -95,7 +95,7 @@ WHERE   [q1.geom3035]
                     )
                 ,3035)];
 -- Query 11d: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection)
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE   [q1.geom3035] 
         ST_Intersects_NoIndex
@@ -110,7 +110,7 @@ WHERE   [q1.geom3035]
                     )
                 ,3035)];
 -- Query 11e: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection)
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE   [q1.geom3035] 
         ST_Intersects_NoIndex
@@ -125,7 +125,7 @@ WHERE   [q1.geom3035]
                 ,3035)];
 
 -- Query 11a_scalar: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection) SCALAR VERSION
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE st_intersects(
             q1.geom3035,
@@ -140,7 +140,7 @@ WHERE st_intersects(
                     )
                 ,3035));
 -- Query 11b_scalar: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection) SCALAR VERSION
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE st_intersects(
             q1.geom3035,
@@ -156,7 +156,7 @@ WHERE st_intersects(
                     )
                 ,3035));
 -- Query 11c_scalar: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection) SCALAR VERSION
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE st_intersects(
             q1.geom3035,
@@ -170,7 +170,7 @@ WHERE st_intersects(
                     )
                 ,3035));
 -- Query 11d_scalar: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection) SCALAR VERSION
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE st_intersects(
             q1.geom3035,
@@ -185,7 +185,7 @@ WHERE st_intersects(
                     )
                 ,3035));
 -- Query 11e_scalar: Get vessels within a bounded area (geometric dwithin using SRID:3035 projection) SCALAR VERSION
-SELECT count(distinct mmsi), count(*) 
+SELECT count(*) 
 FROM ais_data.dynamic_ships as q1
 WHERE st_intersects(
             q1.geom3035,
