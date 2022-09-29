@@ -32,6 +32,61 @@ parser.add_argument('--single-system', dest='system', choices=[MONET_ONLY, PGRES
 
 args = parser.parse_args()
 
+#Queries for r-tree bench
+queries_rtree = [
+    {
+        "q_num": 1,
+        "q_name": "intersects_scalar_multi_SMALL",
+        "q_pipe": "default_pipe"
+    },
+    {
+        "q_num": 2,
+        "q_name": "intersects_filter_multi_SMALL",
+        "q_pipe": "default_pipe"
+    },
+    {
+        "q_num": 3,
+        "q_name": "intersects_scalar_single_SMALL",
+        "q_pipe": "sequential_pipe"
+    },
+    {
+        "q_num": 4,
+        "q_name": "intersects_filter_single_SMALL",
+        "q_pipe": "sequential_pipe"
+    },
+    {
+        "q_num": 5,
+        "q_name": "intersects_rtree_single_SMALL",
+        "q_pipe": "sequential_pipe"
+    },
+    {
+        "q_num": 6,
+        "q_name": "intersects_scalar_multi_BIG",
+        "q_pipe": "default_pipe"
+    },
+    {
+        "q_num": 7,
+        "q_name": "intersects_filter_multi_BIG",
+        "q_pipe": "default_pipe"
+    },
+    {
+        "q_num": 8,
+        "q_name": "intersects_scalar_single_BIG",
+        "q_pipe": "sequential_pipe"
+    },
+    {
+        "q_num": 9,
+        "q_name": "intersects_filter_single_BIG",
+        "q_pipe": "sequential_pipe"
+    },
+    {
+        "q_num": 10,
+        "q_name": "intersects_rtree_single_BIG",
+        "q_pipe": "sequential_pipe"
+    }
+]
+
+#Queries for new Maritime bench (VesselAI)
 queries = [
     {
         "q_num": 9,
@@ -148,6 +203,7 @@ class DatabaseHandler:
     def benchmark(self):
         self.get_version(self.cur)
         self.run_queries(self.cur)
+        #self.run_queries_rtree(self.cur)
         if args.drop:
             self.drop_schema(self.cur)
 
@@ -163,8 +219,11 @@ class DatabaseHandler:
     def get_server_query_time(self, cur):
         return -1
 
+    def run_queries_rtree (self, cur):
+        pass
+
     def run_queries(self, cur):  
-        geo_queries = self.open_and_split_sql_file(f"{self.system}_queries_new.sql")      
+        geo_queries = self.open_and_split_sql_file(f"{self.system}_queries_new.sql")     
         logger.debug("Running queries")
 
         total_time = 0
@@ -250,6 +309,42 @@ class MonetHandler(DatabaseHandler):
         else:
             return -1'''
         return -1
+    
+    def run_queries_rtree (self, cur):
+        rtree_queries = self.open_and_split_sql_file(f"{self.system}_rtree_queries.sql")     
+        logger.debug("Running rtree queries")
+
+        total_time = 0
+        query_num = 1
+        for q in rtree_queries:
+            if not q:
+                continue
+            if not self.execute_query(cur, f'set optimizer = \'{queries_rtree[query_num-1]["q_pipe"]}\''):
+                logger.error(f'Error while setting the optimizer pipeline')
+                continue
+            for i in range(2):
+                if not self.execute_query(cur, q):
+                    logger.error(f'Query {queries_rtree[query_num-1]["q_name"]} failed')
+                    continue
+            start = timer()
+            if not self.execute_query(cur, q):
+                self.register_result(
+                    self.system,
+                    f'Q{queries_rtree[query_num-1]["q_num"]}_{queries_rtree[query_num-1]["q_name"]}',
+                    -1)
+                query_num += 1
+                continue
+            client_time = timer() - start
+            total_time += client_time
+
+            self.register_result(self.system, 
+                                 f'Q{queries_rtree[query_num-1]["q_num"]}_{queries_rtree[query_num-1]["q_name"]}',
+                                 client_time)
+            logger.debug("CLIENT: Executed query %s in %6.3f seconds"
+                         % (query_num, client_time))
+            query_num += 1
+        logger.info("Executed all queries in %6.3f seconds" % total_time)
+        self.register_result(self.system, "All queries", total_time)
 
 
 class PostgresHandler(DatabaseHandler):

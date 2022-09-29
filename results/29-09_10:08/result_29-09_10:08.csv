@@ -1,0 +1,12 @@
+Operation,Monet_Client_Time,PSQL_Client_Time
+Q1_intersects_scalar_multi_SMALL,11.121537084000003,,
+Q2_intersects_filter_multi_SMALL,5.06630225,,
+Q3_intersects_scalar_single_SMALL,24.402587291999993,,
+Q4_intersects_filter_single_SMALL,14.722159083999998,,
+Q5_intersects_rtree_single_SMALL,11.686303457999998,,
+Q6_intersects_scalar_multi_BIG,131.38655054199995,,
+Q7_intersects_filter_multi_BIG,119.0653098329999,,
+Q8_intersects_scalar_single_BIG,631.8564565409997,,
+Q9_intersects_filter_single_BIG,560.8866914999999,,
+Q10_intersects_rtree_single_BIG,572.7869932920003,,
+All queries,2082.9808908759996,,

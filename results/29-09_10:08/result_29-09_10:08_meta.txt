@@ -1,0 +1,5 @@
+MonetDB server version11.44.0
+(hg id 5718439adb42+)
+pymonetdb client version 1.4.0
+Distance is calculated with the sphere model
+
