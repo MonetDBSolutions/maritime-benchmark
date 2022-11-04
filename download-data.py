@@ -57,7 +57,12 @@ def main():
         exit(1)
     
     os.makedirs(datadir)
-    download_data(datadir)
+    try: 
+        download_data(datadir)
+    except:
+        os.rmdir(datadir)
+        raise
+    
     print("data are downloaded")
 
 def download_data(datadir):
