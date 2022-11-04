@@ -12,6 +12,10 @@ import sys
 MONET_ONLY = 'monet'
 PGRES_ONLY = 'postgres'
 
+DEFAULT_USER = 'monetdb'
+DEFAULT_PW = 'monetdb'
+DEFAULT_PORT = 50000
+
 intro = """
         This program loads the Maritime Geographic datasets benchmark 
         from the 'Guide to Maritime Informatics' book to MonetDB and PostGIS.
@@ -25,6 +29,8 @@ parser.add_argument('--system', type=str, required=False, default=None,
                     choices=[MONET_ONLY, PGRES_ONLY])
 parser.add_argument('--database', type=str, required=False, default="maritime",
                     help='Name of the database to load the data (default is maritime)')
+parser.add_argument('--port', type=int, required=False, default=None,
+                    help='The port of the host (ONLY for Monet)')
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
                     help='Load only the datasets needed for geo-benchmark. '
                          'By default all Maritime datasets are loaded')
@@ -149,7 +155,14 @@ def execute_query(cur, q):
 
 
 def load_monetdb(scripts_dir):
-    conn = pymonetdb.connect(args.database, autocommit=True)
+    un = input(f'username({DEFAULT_USER}):')
+    pw = input(f'password({DEFAULT_PW}):')
+    conn = pymonetdb.connect(database=args.database,
+            username=un if un else DEFAULT_USER,
+            password=pw if pw else DEFAULT_PW,
+            port=args.port,
+            autocommit=True)
+
     if conn:
         print(f"Connected to MonetDB database {args.database}")
         cur = conn.cursor()
