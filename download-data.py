@@ -74,13 +74,13 @@ def download_data(datadir):
         url = f"{HOME}{link}?download=1"
         print(f'downloading: {url}')
 
+        # retry 5 times
         for i in range(0, 5):
             try:
                 r = requests.get(url, stream=True, allow_redirects=True)
                 break
             except:
                 # if a conn error occurs, sleep for 20 seconds then
-                # retry. max allowed retries are 5
                 print("Downloading threw connection error, retrying in 20 seconds...")
                 time.sleep(20)
                 continue
