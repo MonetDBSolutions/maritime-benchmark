@@ -29,7 +29,9 @@ parser.add_argument('--system', type=str, required=False, default=None,
                     choices=[MONET_ONLY, PGRES_ONLY])
 parser.add_argument('--database', type=str, required=False, default="maritime",
                     help='Name of the database to load the data (default is maritime)')
-parser.add_argument('--port', type=int, required=False, default=None,
+parser.add_argument('--hostname', type=str, required=False, default=None,
+                    help='Host of the database')
+parser.add_argument('--port', type=int, required=False, default=50000,
                     help='The port of the host (ONLY for Monet)')
 parser.add_argument('--benchmark-set-only', action='store_true', dest='bench_only',
                     help='Load only the datasets needed for geo-benchmark. '
@@ -160,6 +162,7 @@ def load_monetdb(scripts_dir):
     conn = pymonetdb.connect(database=args.database,
             username=un if un else DEFAULT_USER,
             password=pw if pw else DEFAULT_PW,
+            hostname=args.hostname,
             port=args.port,
             autocommit=True)
 
