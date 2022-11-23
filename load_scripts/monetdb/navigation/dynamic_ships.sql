@@ -16,7 +16,7 @@ CREATE TABLE ais_data.dynamic_ships(
 
 COPY OFFSET 2 INTO ais_data.dynamic_ships(mmsi,status,turn,speed,course,heading,lon,lat,ts) 
 FROM '/path/to/data/[P1] AIS Data/nari_dynamic.csv' (mmsi,status,turn,speed,course,heading,lon,lat,ts) 
-DELIMITERS ',','\n','"' NULL AS '';
+ON CLIENT DELIMITERS ',','\n','"' NULL AS '';
 
 #GEOM COLUMN
 ALTER TABLE ais_data.dynamic_ships ADD COLUMN geom Geometry;
