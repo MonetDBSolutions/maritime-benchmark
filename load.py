@@ -178,7 +178,7 @@ def load_monetdb(scripts_dir):
                 {'file': "navigation/dynamic_ships.sql", 'bench': True}
             ]},
             {'schema': 'geographic_data', 'scripts': [
-                {'file': "geographic/bench_data.sql", 'bench': True},
+                {'file': "geographic/bench_data.sql", 'bench': False},
                 {'file': "geographic/general_data.sql", 'bench': False}
             ]},
             {'schema': 'environment_data', 'scripts': [
