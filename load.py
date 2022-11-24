@@ -165,6 +165,11 @@ def load_monetdb(scripts_dir):
             hostname=args.hostname,
             port=args.port,
             autocommit=True)
+   
+    # for COPY INTO ON CLIENT we need to install a SafeDirectoryHandler
+    data_dir = os.path.abspath(args.data)
+    transfer_handler = pymonetdb.SafeDirectoryHandler(data_dir)
+    conn.set_uploader(transfer_handler)
 
     if conn:
         print(f"Connected to MonetDB database {args.database}")
