@@ -13,6 +13,10 @@ import csv
 MONET_ONLY = 'monet'
 PGRES_ONLY = 'postgres'
 
+DEFAULT_USER = 'monetdb'
+DEFAULT_PW = 'monetdb'
+DEFAULT_PORT = 50000
+
 parser = argparse.ArgumentParser(
     description='Geom benchmark (MonetDB Geo vs PostGIS)',
     epilog='This program executes the VesselAI Geographic data '
@@ -29,6 +33,10 @@ parser.add_argument('--no-drop', dest='drop', action='store_false',
 parser.add_argument('--single-system', dest='system', choices=[MONET_ONLY, PGRES_ONLY],
                     help='Choose to run the benchmark on only one db '
                     'system (default both systems)') 
+parser.add_argument('--hostname', type=str, required=False, default=None,
+                    help='Host of the database')
+parser.add_argument('--port', type=int, required=False, default=50000,
+                    help='The port of the host (ONLY for Monet)')
 
 args = parser.parse_args()
 
@@ -275,7 +283,14 @@ class MonetHandler(DatabaseHandler):
         self.monet_revision = None
 
     def connect_database(self):
-        conn = pymonetdb.connect(args.database, autocommit=True)
+        un = input(f'username({DEFAULT_USER}):')
+        pw = input(f'password({DEFAULT_PW}):')
+        conn = pymonetdb.connect(database=args.database,
+                username=un if un else DEFAULT_USER,
+                password=pw if pw else DEFAULT_PW,
+                hostname=args.hostname,
+                port=args.port,
+                autocommit=True)
         return conn
 
     def get_version(self, cur):
