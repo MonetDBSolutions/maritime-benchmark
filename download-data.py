@@ -26,15 +26,15 @@ args = parser.parse_args()
 
 # 'bench' key describes if the dataset is required by the Geom benchmark
 sources = [
-    {'url': '%5BC1%5D%20Ports%20of%20Brittany.zip', 'bench': True},
+    {'url': '%5BC1%5D%20Ports%20of%20Brittany.zip', 'bench': False},
     {'url': '%5BC1%5D%20SeaDataNet%20Port%20Index.zip', 'bench': False},
     {'url': '%5BC2%5D%20European%20Coastline.zip', 'bench': False},
-    {'url': '%5BC1%5D%20World%20Port%20Index.zip', 'bench': True},
+    {'url': '%5BC1%5D%20World%20Port%20Index.zip', 'bench': False},
     {'url': '%5BC2%5D%20European%20Maritime%20Boundaries.zip', 'bench': False},
     {'url': '%5BC2%5D%20IHO%20World%20Seas.zip', 'bench': False},
     {'url': '%5BC2%5D%20World%20EEZ.zip', 'bench': False},
-    {'url': '%5BC4%5D%20FAO%20Maritime%20Areas.zip', 'bench': True},
-    {'url': '%5BC4%5D%20Fishing%20Areas%20%28European%20commission%29.zip', 'bench': True},
+    {'url': '%5BC4%5D%20FAO%20Maritime%20Areas.zip', 'bench': False},
+    {'url': '%5BC4%5D%20Fishing%20Areas%20%28European%20commission%29.zip', 'bench': False},
     {'url': '%5BC5%5D%20Fishing%20Constraints.zip', 'bench': False},
     {'url': '%5BC5%5D%20Marine%20Protected%20Areas%20%28EEA%20Natura%202000%29.zip', 'bench': False},
     {'url': '%5BC6%5D%20ANFR%20Vessel%20List.zip', 'bench': False},

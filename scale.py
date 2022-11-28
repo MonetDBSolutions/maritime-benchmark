@@ -28,11 +28,10 @@ logger = logging.getLogger(__name__)
 # for the time being we only scale dynamic AIS data
 bench_files = [
     {'file': '[P1] AIS Data/nari_dynamic.csv', 'scale': True },
-    {'file': '[C1] Ports of Brittany/port.shp', 'scale': False },
-    {'file': '[C4] FAO Maritime Areas/FAO_AREAS.shp', 'scale': False },
-    {'file': '[C4] Fishing Areas (European commission)/v_recode_fish_area_clean.shp', 
-     'scale': False },
-    {'file': '[C1] World Port Index/WPI.shp', 'scale': False }
+    # {'file': '[C1] Ports of Brittany/port.shp', 'scale': False },
+    # {'file': '[C4] FAO Maritime Areas/FAO_AREAS.shp', 'scale': False },
+    # {'file': '[C4] Fishing Areas (European commission)/v_recode_fish_area_clean.shp', # 'scale': False },
+    # {'file': '[C1] World Port Index/WPI.shp', 'scale': False }
 ]
 
 def scaleCSV(src_lines, dst, scale):
