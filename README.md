@@ -1,4 +1,43 @@
-# Maritime Import
+# Maritime Benchmark
+
+## Quick start (MonetDB only)
+
+At first you need to install [pymonetdb](github.com/MonetDB/pymonetdb)
+the monetdb driver for python. Optionally you can install it in a python
+[virtual environment](docs.python.org/3/library/vevn).
+
+Download only the benchmark dataset
+```sh
+download-data.py --benchmark-set-only
+```
+
+If you would like to operate on scaled (down) version of the dataset you
+can simply do
+```sh
+scale.py --scale 0.01 --target scaled-data-0.01/
+```
+Note that the scaling script is **not** scaling shapefiles.
+
+To load the data on a running instance of monetdb (for instruction check
+the official
+[docs](monetdb.org/documentation/user-guide/tutorials/voc-tutorial/))
+execute the _load.py_ script
+```sh
+load.py --system monet \
+    --database <DB-NAME> \
+    --data <DATA-DIR> \
+    --scale<SCALE> \
+    --benchmark-set-only 
+```
+Additionally, if the database is not running locally or it is using a
+different port append the _hostname_ and _port_ `--hostname <HOST>
+--port <PORT>`. 
+
+To execute the benchmark
+```sh
+execute.py --database <DB-NAME> --no-drop --single-system monet
+```
+The _hostname_ and _port_ can be specified as with the _load.py_ script.
 
 ## Loading datasets into MonetDB/Postgres
 
